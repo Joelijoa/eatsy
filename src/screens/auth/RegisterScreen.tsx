@@ -46,7 +46,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     try {
       await registerUser(email, password, name);
-      navigation.replace('MainTabs');
+      // AppNavigator redirige automatiquement quand user change
     } catch (err: any) {
       Alert.alert('Erreur', err.message ?? 'Inscription échouée');
     } finally {

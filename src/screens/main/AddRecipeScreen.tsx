@@ -64,7 +64,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true, aspect: [4, 3], quality: 0.8,
     });
     if (!result.canceled) setImageUri(result.assets[0].uri);

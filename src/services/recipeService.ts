@@ -8,7 +8,6 @@ import {
   getDoc,
   query,
   where,
-  orderBy,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -18,9 +17,9 @@ const recipesCol = (userId: string) =>
   query(collection(db, 'recipes'), where('userId', '==', userId));
 
 export const getRecipes = async (userId: string): Promise<Recipe[]> => {
-  const q = query(collection(db, 'recipes'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'recipes'), where('userId', '==', userId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => {
+  const recipes = snap.docs.map((d) => {
     const data = d.data();
     return {
       ...data,
@@ -28,6 +27,7 @@ export const getRecipes = async (userId: string): Promise<Recipe[]> => {
       createdAt: data.createdAt?.toDate?.() ?? new Date(),
     } as Recipe;
   });
+  return recipes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 };
 
 export const getRecipe = async (recipeId: string): Promise<Recipe | null> => {

@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
@@ -17,11 +13,10 @@ import { EatsyInput } from '../../components/EatsyInput';
 import { loginUser } from '../../services/authService';
 import { RootStackParamList } from '../../types';
 
-type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
-};
+type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Login'> };
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,9 +37,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     try {
       await loginUser(email, password);
-      navigation.replace('MainTabs');
     } catch (err: any) {
-      Alert.alert('Erreur', err.message ?? 'Connexion échouée');
+      Alert.alert('Erreur de connexion', 'Email ou mot de passe incorrect.');
     } finally {
       setLoading(false);
     }
@@ -54,32 +48,29 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl }]}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Decorative blob */}
-        <View style={styles.blobTopRight} />
-        <View style={styles.blobBottomLeft} />
-
-        <View style={styles.card}>
-          {/* Logo */}
-          <View style={styles.logoSection}>
-            <View style={styles.logoIcon}>
-              <Text style={styles.logoIconText}>🍴</Text>
-            </View>
-            <Text style={styles.logoText}>Eatsy</Text>
-            <Text style={styles.tagline}>Bienvenue à la table curatée.</Text>
+        {/* Logo */}
+        <View style={styles.logoSection}>
+          <View style={styles.logoIcon}>
+            <Ionicons name="restaurant" size={28} color={Colors.primary} />
           </View>
+          <Text style={styles.logoText}>Eatsy</Text>
+          <Text style={styles.tagline}>Planifiez. Cuisinez. Économisez.</Text>
+        </View>
 
-          {/* Form */}
+        {/* Form card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Connexion</Text>
+
           <EatsyInput
-            label="Adresse e-mail"
+            label="Email"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            autoComplete="email"
-            placeholder="hello@example.com"
+            placeholder="votre@email.com"
             error={errors.email}
           />
           <EatsyInput
@@ -89,49 +80,23 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             secureTextEntry={!showPassword}
             placeholder="••••••••"
             error={errors.password}
-            rightIcon={
-              <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
-            }
+            rightIcon={<Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.outline} />}
             onRightIconPress={() => setShowPassword(!showPassword)}
           />
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ForgotPassword')}
-            style={styles.forgotRow}
-          >
+          <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgotRow}>
             <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
           </TouchableOpacity>
 
-          <EatsyButton
-            label="Se connecter"
-            onPress={handleLogin}
-            loading={loading}
-            style={styles.loginBtn}
-          />
-
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>ou</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Sign up */}
-          <View style={styles.signupRow}>
-            <Text style={styles.signupText}>Nouveau ? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.signupLink}>Créer un compte</Text>
-            </TouchableOpacity>
-          </View>
+          <EatsyButton label="Se connecter" onPress={handleLogin} loading={loading} />
         </View>
 
-        {/* Footer links */}
-        <View style={styles.footer}>
-          <Text style={styles.footerLink}>Confidentialité</Text>
-          <Text style={styles.footerDot}>·</Text>
-          <Text style={styles.footerLink}>CGU</Text>
-          <Text style={styles.footerDot}>·</Text>
-          <Text style={styles.footerLink}>Aide</Text>
+        {/* Sign up */}
+        <View style={styles.signupRow}>
+          <Text style={styles.signupText}>Pas encore de compte ? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.signupLink}>Créer un compte</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -140,131 +105,23 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.surface },
-  content: {
-    flexGrow: 1,
-    padding: Spacing.lg,
-    justifyContent: 'center',
-  },
-  blobTopRight: {
-    position: 'absolute',
-    top: -40,
-    right: -60,
-    width: 200,
-    height: 200,
-    backgroundColor: `${Colors.secondaryContainer}40`,
-    borderRadius: 100,
-  },
-  blobBottomLeft: {
-    position: 'absolute',
-    bottom: -60,
-    left: -80,
-    width: 250,
-    height: 250,
-    backgroundColor: `${Colors.primaryFixed}30`,
-    borderRadius: 125,
-  },
-  card: {
-    backgroundColor: Colors.surfaceContainerLowest,
-    borderRadius: BorderRadius.xxl + 8,
-    padding: Spacing.xl,
-    shadowColor: Colors.onSurface,
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.06,
-    shadowRadius: 32,
-    elevation: 4,
-  },
-  logoSection: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-  },
+  content: { flexGrow: 1, paddingHorizontal: Spacing.lg, justifyContent: 'center' },
+  logoSection: { alignItems: 'center', marginBottom: Spacing.xl },
   logoIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.primaryContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
+    width: 60, height: 60, borderRadius: BorderRadius.xl,
+    backgroundColor: `${Colors.primary}15`, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
   },
-  logoIconText: {
-    fontSize: 36,
+  logoText: { fontFamily: FontFamily.headlineBold, fontSize: 34, color: Colors.onSurface, letterSpacing: -1 },
+  tagline: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, marginTop: 4 },
+  card: {
+    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    padding: Spacing.xl, marginBottom: Spacing.lg,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3,
   },
-  logoText: {
-    fontFamily: FontFamily.headlineBold,
-    fontSize: FontSize.displayLg,
-    color: Colors.primary,
-    letterSpacing: -1,
-  },
-  tagline: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.bodyMd,
-    color: Colors.onSurfaceVariant,
-    marginTop: 4,
-  },
-  forgotRow: {
-    alignItems: 'flex-end',
-    marginTop: -Spacing.xs,
-    marginBottom: Spacing.lg,
-  },
-  forgotText: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.bodyMd,
-    color: Colors.secondary,
-  },
-  loginBtn: {
-    marginTop: Spacing.xs,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: Spacing.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: `${Colors.outlineVariant}40`,
-  },
-  dividerText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.labelMd,
-    color: Colors.outline,
-    marginHorizontal: Spacing.sm,
-  },
-  signupRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  signupText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.bodyMd,
-    color: Colors.onSurfaceVariant,
-  },
-  signupLink: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.bodyMd,
-    color: Colors.primary,
-    textDecorationLine: 'underline',
-    textDecorationColor: Colors.primary,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: Spacing.xl,
-    gap: Spacing.xs,
-  },
-  footerLink: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.labelSm,
-    color: Colors.outline,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  footerDot: {
-    color: Colors.outlineVariant,
-  },
-  eyeIcon: {
-    fontSize: 18,
-  },
+  cardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.onSurface, marginBottom: Spacing.lg },
+  forgotRow: { alignItems: 'flex-end', marginBottom: Spacing.lg, marginTop: -Spacing.xs },
+  forgotText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
+  signupRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  signupText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  signupLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
 });
