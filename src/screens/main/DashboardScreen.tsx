@@ -9,6 +9,7 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences } from '../../context/PreferencesContext';
+import { getPantryItems } from '../../services/pantryService';
 import { getRecipes } from '../../services/recipeService';
 import { getOrCreateWeekPlan, getWeekStart } from '../../services/plannerService';
 import { seedTestData } from '../../services/seedData';
@@ -34,18 +35,21 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
+  const [pantryCount, setPantryCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
     if (!user) return;
     try {
       await seedTestData(user.uid);
-      const [r, wp] = await Promise.all([
+      const [r, wp, pantry] = await Promise.all([
         getRecipes(user.uid),
         getOrCreateWeekPlan(user.uid, getWeekStart()),
+        getPantryItems(user.uid),
       ]);
       setRecipes(r);
       setWeekPlan(wp);
+      setPantryCount(pantry.length);
     } catch (e) { console.error(e); }
   };
 
@@ -323,6 +327,31 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Pantry shortcut */}
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.pantryCard} onPress={() => navigation.navigate('Pantry')} activeOpacity={0.85}>
+            <View style={styles.pantryLeft}>
+              <View style={styles.pantryIconWrap}>
+                <Ionicons name="basket-outline" size={22} color={Colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.pantryTitle}>Garde-manger</Text>
+                <Text style={styles.pantrySub}>
+                  {pantryCount > 0 ? `${pantryCount} ingrédient${pantryCount > 1 ? 's' : ''} en stock` : 'Gérez votre stock'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.pantryRight}>
+              {pantryCount > 0 && (
+                <View style={styles.pantryCountBadge}>
+                  <Text style={styles.pantryCountText}>{pantryCount}</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={18} color={Colors.outlineVariant} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Tip */}
         <View style={styles.section}>
           <View style={styles.tipCard}>
@@ -475,6 +504,25 @@ const styles = StyleSheet.create({
   dotFilled: { backgroundColor: Colors.outline },
   dotFilledActive: { backgroundColor: Colors.onPrimary },
 
+  pantryCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+  },
+  pantryLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  pantryIconWrap: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center',
+  },
+  pantryTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  pantrySub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 1 },
+  pantryRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pantryCountBadge: {
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
+    paddingHorizontal: 8, paddingVertical: 2,
+  },
+  pantryCountText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: Colors.onPrimary },
   tipCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,
     backgroundColor: `${Colors.secondaryContainer}50`, borderRadius: BorderRadius.xl, padding: Spacing.md,

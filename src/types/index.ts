@@ -86,6 +86,15 @@ export interface ShoppingList {
   createdAt: Date;
 }
 
+export interface PantryItem {
+  id: string;
+  userId: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  updatedAt: Date;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;

@@ -14,6 +14,7 @@ import {
   getShoppingItems, addShoppingItem, toggleShoppingItem,
   deleteShoppingItem, clearCheckedItems,
 } from '../../services/shoppingListService';
+import { addOrMergePantryItem } from '../../services/pantryService';
 import { ShoppingItem } from '../../types';
 
 const UNITS = ['pcs', 'kg', 'g', 'L', 'cl', 'ml', 'sachet', 'boîte', 'bouteille'];
@@ -70,6 +71,21 @@ export const ShoppingListScreen: React.FC = () => {
     const updated = !item.checked;
     setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, checked: updated } : i));
     await toggleShoppingItem(item.id, updated);
+
+    // When checking an item, offer to add to pantry
+    if (updated && user) {
+      Alert.alert(
+        'Ajouter au stock ?',
+        `Ajouter "${item.name}" (${item.quantity} ${item.unit}) à votre garde-manger ?`,
+        [
+          { text: 'Non', style: 'cancel' },
+          {
+            text: 'Ajouter au stock', onPress: () =>
+              addOrMergePantryItem(user.uid, item.name, item.quantity, item.unit),
+          },
+        ],
+      );
+    }
   };
 
   const handleDelete = (item: ShoppingItem) => {
@@ -134,21 +150,33 @@ export const ShoppingListScreen: React.FC = () => {
   );
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={styles.screen}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('shopping_title')}</Text>
-        <View style={styles.headerActions}>
-          {checked.length > 0 && (
-            <TouchableOpacity style={styles.clearBtn} onPress={handleClearChecked}>
-              <Ionicons name="checkmark-done-outline" size={16} color={Colors.onSurfaceVariant} />
+      <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.headerDecor} />
+        <View style={styles.headerMain}>
+          <View>
+            <Text style={styles.title}>{t('shopping_title')}</Text>
+            <Text style={styles.headerSub}>
+              {checked.length}/{items.length} {t('shopping_checked').toLowerCase()}
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            {checked.length > 0 && (
+              <TouchableOpacity style={styles.clearBtn} onPress={handleClearChecked}>
+                <Ionicons name="checkmark-done-outline" size={16} color="rgba(255,255,255,0.85)" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.addBtn} onPress={openModal}>
+              <Ionicons name="add" size={20} color={Colors.primary} />
             </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.addBtn} onPress={openModal}>
-            <Ionicons name="add" size={20} color={Colors.onPrimary} />
-            <Text style={styles.addBtnText}>{t('common_add')}</Text>
-          </TouchableOpacity>
+          </View>
         </View>
+        {items.length > 0 && (
+          <View style={styles.headerProgress}>
+            <View style={[styles.headerProgressFill, { width: `${progress * 100}%` }]} />
+          </View>
+        )}
       </View>
 
       {items.length === 0 ? (
@@ -169,30 +197,23 @@ export const ShoppingListScreen: React.FC = () => {
           renderItem={null}
           ListHeaderComponent={
             <>
-              {/* Summary card */}
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryValue}>{items.length}</Text>
+              {/* Summary cards */}
+              <View style={styles.summaryRow}>
+                <View style={[styles.summaryCard, { backgroundColor: `${Colors.primary}14` }]}>
+                  <Ionicons name="list-outline" size={18} color={Colors.primary} />
+                  <Text style={[styles.summaryValue, { color: Colors.primary }]}>{items.length}</Text>
                   <Text style={styles.summaryLabel}>{t('shopping_articles')}</Text>
                 </View>
-                <View style={styles.summaryDivider} />
-                <View style={styles.summaryStat}>
-                  <Text style={[styles.summaryValue, { color: Colors.primary }]}>{checked.length}/{items.length}</Text>
+                <View style={[styles.summaryCard, { backgroundColor: `${Colors.secondary}18` }]}>
+                  <Ionicons name="checkmark-done-outline" size={18} color={Colors.secondary} />
+                  <Text style={[styles.summaryValue, { color: Colors.secondary }]}>{checked.length}/{items.length}</Text>
                   <Text style={styles.summaryLabel}>{t('shopping_checked')}</Text>
                 </View>
-                <View style={styles.summaryDivider} />
-                <View style={styles.summaryStat}>
-                  <Text style={[styles.summaryValue, { color: Colors.primary }]}>{formatCurrency(totalCost)}</Text>
+                <View style={[styles.summaryCard, { backgroundColor: `${Colors.tertiary}14` }]}>
+                  <Ionicons name="cash-outline" size={18} color={Colors.tertiary} />
+                  <Text style={[styles.summaryValue, { color: Colors.tertiary }]}>{formatCurrency(totalCost)}</Text>
                   <Text style={styles.summaryLabel}>{t('shopping_total')}</Text>
                 </View>
-              </View>
-
-              {/* Progress */}
-              <View style={styles.progressRow}>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-                </View>
-                <Text style={styles.progressPct}>{Math.round(progress * 100)}%</Text>
               </View>
 
               {/* To buy */}
@@ -341,21 +362,29 @@ const unitStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.surface },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
+  headerBand: {
+    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg + 16, overflow: 'hidden',
+    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
-  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: Colors.onSurface },
+  headerDecor: {
+    position: 'absolute', width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)', top: -50, right: -30,
+  },
+  headerMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
+  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
+  headerSub: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   clearBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
   },
   addBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 8, borderRadius: BorderRadius.full,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: Colors.surfaceContainerLowest, alignItems: 'center', justifyContent: 'center',
   },
-  addBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
+  headerProgress: { height: 5, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 3, overflow: 'hidden' },
+  headerProgressFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 3 },
 
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.sm },
   emptyIconWrap: {
@@ -370,16 +399,13 @@ const styles = StyleSheet.create({
   },
   emptyAddBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
 
+  summaryRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
   summaryCard: {
-    flexDirection: 'row', backgroundColor: Colors.surfaceContainerLowest,
-    borderRadius: BorderRadius.xl, marginHorizontal: Spacing.lg, marginBottom: Spacing.sm,
-    padding: Spacing.md,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    flex: 1, alignItems: 'center', gap: 3,
+    borderRadius: BorderRadius.xl, padding: Spacing.md,
   },
-  summaryStat: { flex: 1, alignItems: 'center' },
-  summaryValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineSm, color: Colors.onSurface },
-  summaryLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, marginTop: 2 },
-  summaryDivider: { width: 1, backgroundColor: Colors.surfaceContainerHigh },
+  summaryValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface },
+  summaryLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, textAlign: 'center' },
 
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   progressTrack: { flex: 1, height: 5, backgroundColor: Colors.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden' },

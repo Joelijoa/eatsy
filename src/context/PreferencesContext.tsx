@@ -28,6 +28,7 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     tabs_recipes: 'Recettes',
     tabs_shopping: 'Courses',
     tabs_budget: 'Budget',
+    tabs_stock: 'Stock',
     // Wellness
     wellness_balanced: 'Équilibré',
     wellness_quick: 'Rapide',
@@ -147,6 +148,7 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     tabs_recipes: 'Recipes',
     tabs_shopping: 'Shopping',
     tabs_budget: 'Budget',
+    tabs_stock: 'Stock',
     // Wellness
     wellness_balanced: 'Balanced',
     wellness_quick: 'Quick',

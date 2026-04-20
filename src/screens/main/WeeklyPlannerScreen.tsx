@@ -132,23 +132,26 @@ export const WeeklyPlannerScreen: React.FC = () => {
   const DAY_LABELS_SHORT = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={styles.screen}>
       {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>{t('planner_title')}</Text>
-          <Text style={styles.subtitle}>{t('planner_week_of')} {getWeekStart()}</Text>
-        </View>
-        <View style={styles.weekSummaryPill}>
-          <Ionicons name="restaurant-outline" size={13} color={Colors.primary} />
-          <Text style={styles.weekSummaryText}>
-            {plan ? Object.values(plan.days).reduce((s, d) => s + MEAL_KEYS.filter((k) => (d[k] as any).recipeId).length, 0) : 0} {t('planner_meals_planned')}
-          </Text>
+      <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.headerDecor} />
+        <View style={styles.headerMain}>
+          <View>
+            <Text style={styles.title}>{t('planner_title')}</Text>
+            <Text style={styles.subtitle}>{t('planner_week_of')} {getWeekStart()}</Text>
+          </View>
+          <View style={styles.weekSummaryPill}>
+            <Ionicons name="restaurant-outline" size={13} color="#fff" />
+            <Text style={styles.weekSummaryText}>
+              {plan ? Object.values(plan.days).reduce((s, d) => s + MEAL_KEYS.filter((k) => (d[k] as any).recipeId).length, 0) : 0} {t('planner_meals_planned')}
+            </Text>
+          </View>
         </View>
       </View>
 
       {/* Day selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayRow}>
+      <View style={styles.dayRow}>
         {weekDates.map((date, idx) => {
           const isToday = idx === todayIdx;
           const isSelected = idx === selectedDay;
@@ -176,7 +179,7 @@ export const WeeklyPlannerScreen: React.FC = () => {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Day header bar */}
       <View style={styles.dayHeaderBar}>
@@ -198,17 +201,14 @@ export const WeeklyPlannerScreen: React.FC = () => {
 
       {/* Meals */}
       <ScrollView style={styles.mealsScroll} showsVerticalScrollIndicator={false}>
-        {MEAL_KEYS.map((meal, idx) => {
+        {MEAL_KEYS.map((meal) => {
           const slot = dayPlan?.[meal] as any;
           const filled = !!slot?.recipeId;
           const wellnessColor = filled && slot.wellnessType ? WELLNESS_COLOR[slot.wellnessType as WellnessType] : Colors.outline;
           return (
             <View key={meal} style={styles.mealCard}>
-              {/* Left accent strip */}
               {filled && <View style={[styles.mealAccent, { backgroundColor: wellnessColor }]} />}
-
               <View style={styles.mealCardInner}>
-                {/* Meal type header */}
                 <View style={styles.mealCardHeader}>
                   <View style={[styles.mealIconCircle, filled && { backgroundColor: wellnessColor }]}>
                     <Ionicons name={getMealIcon(meal)} size={15} color={filled ? '#fff' : Colors.onSurfaceVariant} />
@@ -216,7 +216,6 @@ export const WeeklyPlannerScreen: React.FC = () => {
                   <Text style={styles.mealTypeLabel}>{getMealLabel(meal)}</Text>
                   {filled && (
                     <TouchableOpacity
-                      style={styles.clearSlotBtn}
                       onPress={() => clearSlot(DAY_KEYS[selectedDay], meal)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
@@ -224,8 +223,6 @@ export const WeeklyPlannerScreen: React.FC = () => {
                     </TouchableOpacity>
                   )}
                 </View>
-
-                {/* Slot content */}
                 {filled ? (
                   <TouchableOpacity
                     style={styles.filledSlot}
@@ -234,21 +231,9 @@ export const WeeklyPlannerScreen: React.FC = () => {
                   >
                     <View style={styles.filledSlotContent}>
                       <Text style={styles.filledName}>{slot.recipeName}</Text>
-                      <View style={styles.filledMeta}>
-                        {slot.cost > 0 && (
-                          <View style={styles.metaChip}>
-                            <Ionicons name="wallet-outline" size={11} color={Colors.onSurfaceVariant} />
-                            <Text style={styles.metaChipText}>{formatCurrency(slot.cost)}{t('dashboard_per_person')}</Text>
-                          </View>
-                        )}
-                        {slot.wellnessType && (
-                          <View style={[styles.wellnessBadge, { backgroundColor: `${wellnessColor}18` }]}>
-                            <Text style={[styles.wellnessBadgeText, { color: wellnessColor }]}>
-                              {t(`wellness_${slot.wellnessType}`)}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+                      {slot.cost > 0 && (
+                        <Text style={styles.filledCost}>{formatCurrency(slot.cost)}{t('dashboard_per_person')}</Text>
+                      )}
                     </View>
                     <Ionicons name="chevron-forward" size={16} color={Colors.outlineVariant} />
                   </TouchableOpacity>
@@ -375,23 +360,29 @@ export const WeeklyPlannerScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.surface },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
+  headerBand: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg + 16, overflow: 'hidden',
+    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
-  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: Colors.onSurface },
-  subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 2 },
+  headerDecor: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.06)', top: -80, right: -40,
+  },
+  headerMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
+  subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   weekSummaryPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: `${Colors.primary}10`, borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm, paddingVertical: 6, marginTop: 4,
   },
-  weekSummaryText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.primary },
+  weekSummaryText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: '#fff' },
 
-  dayRow: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.xs },
+  dayRow: { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.xs },
   dayChip: {
-    width: 36, alignItems: 'center', paddingVertical: 6, borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.surfaceContainerHigh,
+    flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: BorderRadius.xl,
+    backgroundColor: Colors.surfaceContainerHigh, height: 74, justifyContent: 'center',
   },
   dayChipActive: { backgroundColor: Colors.primary },
   dayChipLetter: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: Colors.onSurfaceVariant },
@@ -440,17 +431,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
   mealTypeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface, flex: 1 },
-  clearSlotBtn: {},
-
   filledSlot: { flexDirection: 'row', alignItems: 'center' },
   filledSlotContent: { flex: 1 },
-  filledName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface, marginBottom: 4 },
-  filledMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  metaChipText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.onSurfaceVariant },
-  wellnessBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BorderRadius.full },
-  wellnessBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 11 },
-
+  filledName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  filledCost: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 2 },
   emptySlot: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm,

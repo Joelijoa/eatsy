@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  Image, TouchableOpacity, Alert,
+  Image, TouchableOpacity, Alert, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,8 +9,11 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyButton } from '../../components/EatsyButton';
 import { getRecipe, deleteRecipe, calculateRecipeCost } from '../../services/recipeService';
+import { checkRecipeStock, deductRecipeFromPantry, displayQty, IngredientStockInfo } from '../../services/pantryService';
+import { addShoppingItem } from '../../services/shoppingListService';
 import { Recipe, WellnessType } from '../../types';
 import { usePreferences } from '../../context/PreferencesContext';
+import { useAuth } from '../../context/AuthContext';
 
 const WELLNESS_CONFIG: Record<WellnessType, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
   balanced:  { label: 'Équilibré', color: Colors.primary,  bg: `${Colors.secondaryContainer}90`, icon: 'leaf-outline' },
@@ -24,10 +27,28 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { recipeId } = route.params;
   const insets = useSafeAreaInsets();
   const { formatCurrency } = usePreferences();
+  const { user } = useAuth();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'instructions'>('ingredients');
+  const [stockInfo, setStockInfo] = useState<IngredientStockInfo[]>([]);
+  const [deducting, setDeducting] = useState(false);
+  const [addedToCart, setAddedToCart] = useState<Set<string>>(new Set());
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
-  useEffect(() => { getRecipe(recipeId).then(setRecipe); }, [recipeId]);
+  useEffect(() => {
+    getRecipe(recipeId).then(setRecipe);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }),
+    ]).start();
+  }, [recipeId]);
+
+  useEffect(() => {
+    if (recipe && user) {
+      checkRecipeStock(user.uid, recipe.ingredients).then(setStockInfo);
+    }
+  }, [recipe, user]);
 
   if (!recipe) return (
     <View style={styles.loading}>
@@ -40,6 +61,59 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const wConfig = WELLNESS_CONFIG[recipe.wellnessType];
   const totalTime = recipe.prepTime + recipe.cookTime;
 
+  const handleDeduct = () => {
+    if (!user || !recipe) return;
+    const available = stockInfo.filter((s) => s.status !== 'missing').length;
+    if (available === 0) {
+      Alert.alert('Stock insuffisant', 'Aucun ingrédient trouvé dans votre garde-manger.');
+      return;
+    }
+    Alert.alert(
+      'Déduire du stock',
+      `Déduire les ingrédients de "${recipe.name}" de votre garde-manger ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déduire', onPress: async () => {
+            setDeducting(true);
+            await deductRecipeFromPantry(user.uid, recipe.ingredients);
+            const updated = await checkRecipeStock(user.uid, recipe.ingredients);
+            setStockInfo(updated);
+            setDeducting(false);
+            Alert.alert('Stock mis à jour', 'Les ingrédients ont été déduits de votre garde-manger.');
+          },
+        },
+      ],
+    );
+  };
+
+  const handleAddToCart = async (ingName: string, quantity: number, unit: string, price: number) => {
+    if (!user) return;
+    await addShoppingItem(user.uid, { name: ingName, quantity, unit, price });
+    setAddedToCart((prev) => new Set(prev).add(ingName));
+  };
+
+  const handleAddAllMissingToCart = async () => {
+    if (!user || !recipe) return;
+    const missing = stockInfo.filter((s) => s.status === 'missing' || s.status === 'partial');
+    await Promise.all(
+      missing.map((s) =>
+        addShoppingItem(user.uid, {
+          name: s.ingredient.name,
+          quantity: s.ingredient.quantity,
+          unit: s.ingredient.unit,
+          price: s.ingredient.price,
+        }),
+      ),
+    );
+    setAddedToCart((prev) => {
+      const next = new Set(prev);
+      missing.forEach((s) => next.add(s.ingredient.name));
+      return next;
+    });
+    Alert.alert('Ajouté aux courses', `${missing.length} ingrédient(s) ajouté(s) à votre liste de courses.`);
+  };
+
   const handleDelete = () => {
     Alert.alert('Supprimer la recette', `Supprimer "${recipe.name}" définitivement ?`, [
       { text: 'Annuler', style: 'cancel' },
@@ -49,7 +123,11 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.screen}>
-      <ScrollView showsVerticalScrollIndicator={false} bounces={true}>
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+      >
         {/* Hero */}
         <View style={styles.hero}>
           {recipe.imageUrl ? (
@@ -146,18 +224,85 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.tabContent}>
           {activeTab === 'ingredients' ? (
             <>
-              {recipe.ingredients.map((ing, idx) => (
-                <View key={idx} style={styles.ingredientRow}>
-                  <View style={styles.ingNumber}>
-                    <Text style={styles.ingNumberText}>{idx + 1}</Text>
+              {recipe.ingredients.map((ing, idx) => {
+                const info = stockInfo.find((s) => s.ingredient.id === ing.id);
+                const statusColor = info?.status === 'ok' ? Colors.primary : info?.status === 'partial' ? Colors.tertiary : Colors.outlineVariant;
+                const statusIcon: keyof typeof Ionicons.glyphMap = info?.status === 'ok' ? 'checkmark-circle' : info?.status === 'partial' ? 'alert-circle' : 'ellipse-outline';
+                return (
+                  <View key={idx} style={styles.ingredientRow}>
+                    <View style={styles.ingNumber}>
+                      <Text style={styles.ingNumberText}>{idx + 1}</Text>
+                    </View>
+                    <View style={styles.ingInfo}>
+                      <Text style={styles.ingName}>{ing.name}</Text>
+                      <View style={styles.ingQtyRow}>
+                        <Text style={styles.ingQty}>{ing.quantity} {ing.unit}</Text>
+                        {info && (
+                          <View style={styles.ingStockBadge}>
+                            <Ionicons name={statusIcon} size={12} color={statusColor} />
+                            <Text style={[styles.ingStockText, { color: statusColor }]}>
+                              {info.status === 'ok'
+                                ? displayQty(info.availableQty, info.availableUnit)
+                                : info.status === 'partial'
+                                ? `${displayQty(info.availableQty, info.availableUnit)} dispo`
+                                : 'non en stock'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <Text style={styles.ingPrice}>{formatCurrency(ing.price * ing.quantity)}</Text>
+                    {info && info.status !== 'ok' && (
+                      <TouchableOpacity
+                        style={[styles.cartBtn, addedToCart.has(ing.name) && styles.cartBtnDone]}
+                        onPress={() => handleAddToCart(ing.name, ing.quantity, ing.unit, ing.price)}
+                        disabled={addedToCart.has(ing.name)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Ionicons
+                          name={addedToCart.has(ing.name) ? 'checkmark' : 'cart-outline'}
+                          size={15}
+                          color={addedToCart.has(ing.name) ? Colors.onPrimary : Colors.primary}
+                        />
+                      </TouchableOpacity>
+                    )}
                   </View>
-                  <View style={styles.ingInfo}>
-                    <Text style={styles.ingName}>{ing.name}</Text>
-                    <Text style={styles.ingQty}>{ing.quantity} {ing.unit}</Text>
+                );
+              })}
+
+              {/* Stock summary banner */}
+              {stockInfo.length > 0 && (
+                <View style={styles.stockBanner}>
+                  <View style={styles.stockBannerLeft}>
+                    <Ionicons name="cube-outline" size={16} color={Colors.primary} />
+                    <View>
+                      <Text style={styles.stockBannerTitle}>Stock disponible</Text>
+                      <Text style={styles.stockBannerSub}>
+                        {stockInfo.filter((s) => s.status === 'ok').length} complets ·{' '}
+                        {stockInfo.filter((s) => s.status === 'partial').length} partiels ·{' '}
+                        {stockInfo.filter((s) => s.status === 'missing').length} manquants
+                      </Text>
+                    </View>
                   </View>
-                  <Text style={styles.ingPrice}>{formatCurrency(ing.price * ing.quantity)}</Text>
+                  <View style={styles.stockBannerActions}>
+                    {stockInfo.some((s) => s.status === 'missing' || s.status === 'partial') && (
+                      <TouchableOpacity style={styles.cartAllBtn} onPress={handleAddAllMissingToCart}>
+                        <Ionicons name="cart-outline" size={14} color={Colors.tertiary} />
+                        <Text style={styles.cartAllBtnText}>Courses</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.deductBtn, deducting && { opacity: 0.5 }]}
+                      onPress={handleDeduct}
+                      disabled={deducting}
+                    >
+                      <Ionicons name="remove-circle-outline" size={14} color={Colors.primary} />
+                      <Text style={styles.deductBtnText}>Déduire</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              ))}
+              )}
+
               <View style={styles.ingredientTotal}>
                 <Text style={styles.ingredientTotalLabel}>Total ingrédients</Text>
                 <Text style={styles.ingredientTotalValue}>{formatCurrency(totalCost)}</Text>
@@ -189,7 +334,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 };
@@ -278,8 +423,29 @@ const styles = StyleSheet.create({
   ingNumberText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant },
   ingInfo: { flex: 1 },
   ingName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  ingQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 1 },
+  ingQtyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 1 },
+  ingQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
+  ingStockBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ingStockText: { fontFamily: FontFamily.body, fontSize: 10 },
   ingPrice: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
+  stockBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: `${Colors.primary}08`, borderRadius: BorderRadius.xl,
+    padding: Spacing.sm, marginVertical: Spacing.sm,
+  },
+  stockBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flex: 1 },
+  stockBannerTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurface },
+  stockBannerSub: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, marginTop: 1 },
+  stockBannerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  cartAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.tertiary}15`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
+  cartAllBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.tertiary },
+  deductBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.primary}15`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
+  deductBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.primary },
+  cartBtn: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: `${Colors.primary}15`, alignItems: 'center', justifyContent: 'center', marginLeft: 4,
+  },
+  cartBtnDone: { backgroundColor: Colors.primary },
   ingredientTotal: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: Spacing.sm, paddingTop: Spacing.sm,

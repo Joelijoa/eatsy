@@ -128,14 +128,14 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={styles.screen}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.headerDecor} />
         <Text style={styles.title}>{t('recipes_title')}</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('AddRecipe', {})}>
-          <Ionicons name="add" size={20} color={Colors.onPrimary} />
-          <Text style={styles.addBtnText}>{t('recipes_add')}</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerSub}>
+          {filtered.length} {filtered.length !== 1 ? t('recipes_count_many') : t('recipes_count_one')}
+        </Text>
       </View>
 
       {/* Search */}
@@ -169,9 +169,10 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
           return (
             <TouchableOpacity
               key={w}
-              style={[styles.chip, active && styles.chipActive, { borderLeftWidth: 3, borderLeftColor: WELLNESS_COLOR[w] }]}
+              style={[styles.chip, active && styles.chipActive]}
               onPress={() => setActiveWellness(active ? null : w)}
             >
+              <View style={[styles.wellnessDot, { backgroundColor: active ? 'rgba(255,255,255,0.7)' : WELLNESS_COLOR[w] }]} />
               <Ionicons name={WELLNESS_ICON[w]} size={12} color={active ? Colors.onPrimary : WELLNESS_COLOR[w]} />
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(`wellness_${w}`)}</Text>
             </TouchableOpacity>
@@ -188,11 +189,6 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         ))}
       </ScrollView>
-
-      {/* Count */}
-      <Text style={styles.count}>
-        {filtered.length} {filtered.length !== 1 ? t('recipes_count_many') : t('recipes_count_one')}
-      </Text>
 
       <FlatList
         data={filtered}
@@ -212,26 +208,32 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
         }
       />
 
-      {/* FAB scanner */}
-      <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 90 }]} onPress={() => navigation.navigate('FoodScanner')}>
-        <Ionicons name="barcode-outline" size={22} color={Colors.onPrimary} />
-      </TouchableOpacity>
+      {/* FABs */}
+      <View style={[styles.fabRow, { bottom: insets.bottom + 90 }]}>
+        <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={() => navigation.navigate('FoodScanner')}>
+          <Ionicons name="barcode-outline" size={22} color={Colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddRecipe', {})}>
+          <Ionicons name="add" size={26} color={Colors.onPrimary} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.surface },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.md,
+  headerBand: {
+    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg + 16, overflow: 'hidden',
+    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
-  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: Colors.onSurface },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.md, paddingVertical: 8, borderRadius: BorderRadius.full,
+  headerDecor: {
+    position: 'absolute', width: 220, height: 220, borderRadius: 110,
+    backgroundColor: 'rgba(255,255,255,0.06)', top: -80, right: -50,
   },
-  addBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
+  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
+  headerSub: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
@@ -246,12 +248,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: Spacing.md, paddingVertical: 6,
     backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.full,
+    borderWidth: 1, borderColor: 'transparent',
   },
+  wellnessDot: { width: 7, height: 7, borderRadius: 3.5 },
   chipActive: { backgroundColor: Colors.primary },
   chipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
   chipTextActive: { color: Colors.onPrimary },
-  count: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, paddingHorizontal: Spacing.lg, marginBottom: Spacing.xs },
-  list: { paddingHorizontal: Spacing.lg, paddingBottom: 120 },
+  list: { paddingHorizontal: Spacing.lg, paddingBottom: 140 },
 
   recipeCard: {
     flexDirection: 'row', alignItems: 'center',
@@ -284,10 +287,14 @@ const styles = StyleSheet.create({
   emptyIconWrap: { width: 70, height: 70, borderRadius: 35, backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.headlineSm, color: Colors.onSurface },
   emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  fabRow: { position: 'absolute', right: Spacing.lg, flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   fab: {
-    position: 'absolute', right: Spacing.lg,
-    width: 52, height: 52, borderRadius: 26,
+    width: 54, height: 54, borderRadius: 27,
     backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
+  },
+  fabSecondary: {
+    backgroundColor: Colors.surfaceContainerLowest,
+    shadowColor: '#000', shadowOpacity: 0.1,
   },
 });

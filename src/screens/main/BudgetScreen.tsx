@@ -68,14 +68,28 @@ export const BudgetScreen: React.FC = () => {
   const barColor = isOver ? Colors.tertiary : pct > 0.8 ? Colors.tertiary : Colors.primary;
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Budget</Text>
-          <Text style={styles.subtitle}>Semaine du {getWeekStart()}</Text>
+        {/* Green header */}
+        <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
+          <View style={styles.headerDecor} />
+          <View style={styles.headerMain}>
+            <View>
+              <Text style={styles.title}>Budget</Text>
+              <Text style={styles.subtitle}>Semaine du {getWeekStart()}</Text>
+            </View>
+            <View style={styles.headerAmountWrap}>
+              <Text style={styles.headerAmount}>{formatCurrency(weeklyTotal)}</Text>
+              <Text style={styles.headerAmountSub}>/ {formatCurrency(limit)} max</Text>
+            </View>
+          </View>
+          {/* Progress bar in header */}
+          <View style={styles.headerProgress}>
+            <View style={[styles.headerProgressFill, { width: `${pct * 100}%`, backgroundColor: isOver ? Colors.errorContainer : 'rgba(255,255,255,0.9)' }]} />
+          </View>
         </View>
 
         {/* Hero */}
@@ -130,12 +144,13 @@ export const BudgetScreen: React.FC = () => {
         {/* Stats */}
         <View style={styles.statsRow}>
           {[
-            { label: 'Moy./jour', value: formatCurrency(weeklyTotal / 7) },
-            { label: 'Restant', value: formatCurrency(Math.max(0, limit - weeklyTotal)), highlight: !isOver },
-            { label: 'Économies', value: isOver ? '—' : formatCurrency(limit - weeklyTotal), highlight: !isOver },
+            { label: 'Moy./jour', value: formatCurrency(weeklyTotal / 7), icon: 'stats-chart-outline' as const, bg: `${Colors.primary}14`, color: Colors.primary },
+            { label: 'Restant', value: formatCurrency(Math.max(0, limit - weeklyTotal)), icon: 'wallet-outline' as const, bg: `${Colors.secondary}18`, color: Colors.secondary },
+            { label: 'Économies', value: isOver ? '—' : formatCurrency(limit - weeklyTotal), icon: 'trending-down-outline' as const, bg: `${Colors.tertiary}14`, color: isOver ? Colors.onSurfaceVariant : Colors.tertiary },
           ].map((s, i) => (
-            <View key={i} style={styles.statCard}>
-              <Text style={[styles.statValue, s.highlight && styles.statValueGreen]}>{s.value}</Text>
+            <View key={i} style={[styles.statCard, { backgroundColor: s.bg }]}>
+              <Ionicons name={s.icon} size={18} color={s.color} />
+              <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
               <Text style={styles.statLabel}>{s.label}</Text>
             </View>
           ))}
@@ -145,7 +160,7 @@ export const BudgetScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Par jour</Text>
           {dayTotals.map(({ dayKey, label, total, mealDetails }) => (
-            <View key={dayKey} style={styles.dayCard}>
+            <View key={dayKey} style={[styles.dayCard, total > 0 && styles.dayCardActive]}>
               <View style={styles.dayHeader}>
                 <Text style={styles.dayLabel}>{label}</Text>
                 <Text style={[styles.dayTotal, total > 0 && styles.dayTotalActive]}>
@@ -176,9 +191,23 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.surface },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { fontFamily: FontFamily.body, color: Colors.onSurfaceVariant },
-  header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.md },
-  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: Colors.onSurface },
-  subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, marginTop: 2 },
+  headerBand: {
+    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg + 20, overflow: 'hidden',
+    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
+  },
+  headerDecor: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.06)', top: -60, right: -30,
+  },
+  headerMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
+  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
+  subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  headerAmountWrap: { alignItems: 'flex-end' },
+  headerAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg, color: '#fff' },
+  headerAmountSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  headerProgress: { height: 6, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 3, overflow: 'hidden' },
+  headerProgressFill: { height: '100%', borderRadius: 3 },
   heroCard: {
     marginHorizontal: Spacing.lg, backgroundColor: Colors.surfaceContainerLowest,
     borderRadius: BorderRadius.xxl, padding: Spacing.lg, marginBottom: Spacing.md,
@@ -213,9 +242,8 @@ const styles = StyleSheet.create({
   overBudgetText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.tertiary },
   statsRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   statCard: {
-    flex: 1, backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl,
-    padding: Spacing.md, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+    flex: 1, borderRadius: BorderRadius.xl,
+    padding: Spacing.md, alignItems: 'center', gap: 3,
   },
   statValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface, textAlign: 'center' },
   statValueGreen: { color: Colors.primary },
@@ -226,7 +254,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl,
     padding: Spacing.md, marginBottom: Spacing.xs,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
+    borderLeftWidth: 3, borderLeftColor: 'transparent',
   },
+  dayCardActive: { borderLeftColor: Colors.primary },
   dayHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   dayLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
   dayTotal: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },

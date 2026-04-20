@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Alert,
+  ScrollView, Alert, Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { getRecipe } from '../../services/recipeService';
@@ -10,19 +12,44 @@ import { Recipe } from '../../types';
 
 type Props = { navigation: any; route: any };
 
+const PRESET_TIMERS = [
+  { label: '1 min', secs: 60 },
+  { label: '5 min', secs: 300 },
+  { label: '10 min', secs: 600 },
+  { label: '15 min', secs: 900 },
+];
+
 export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { recipeId } = route.params;
+  const insets = useSafeAreaInsets();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [customTimer, setCustomTimer] = useState(5 * 60);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const stepSlide = useRef(new Animated.Value(0)).current;
+  const stepOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     getRecipe(recipeId).then(setRecipe);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [recipeId]);
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(stepOpacity, { toValue: 0, duration: 120, useNativeDriver: true }),
+        Animated.timing(stepSlide, { toValue: 16, duration: 120, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(stepOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(stepSlide, { toValue: 0, useNativeDriver: true, damping: 18, stiffness: 220 }),
+      ]),
+    ]).start();
+  }, [currentStep]);
 
   useEffect(() => {
     if (timerRunning) {
@@ -31,7 +58,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
             setTimerRunning(false);
-            Alert.alert('⏰ Minuteur', 'Le temps est écoulé !');
+            Alert.alert('Minuteur', 'Le temps est écoulé !');
             return 0;
           }
           return prev - 1;
@@ -45,6 +72,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   if (!recipe) return (
     <View style={styles.loading}>
+      <Ionicons name="restaurant-outline" size={44} color={Colors.inversePrimary} />
       <Text style={styles.loadingText}>Chargement...</Text>
     </View>
   );
@@ -54,221 +82,258 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
   const minutes = Math.floor(timerSeconds / 60);
   const seconds = timerSeconds % 60;
 
-  const startTimer = (secs: number) => {
-    setTimerSeconds(secs);
-    setTimerRunning(true);
-  };
-
-  const PRESET_TIMERS = [
-    { label: '1min', secs: 60 },
-    { label: '5min', secs: 300 },
-    { label: '10min', secs: 600 },
-    { label: '15min', secs: 900 },
-  ];
+  const goNext = () => { if (currentStep < totalSteps - 1) setCurrentStep(s => s + 1); };
+  const goPrev = () => { if (currentStep > 0) setCurrentStep(s => s - 1); };
 
   return (
-    <View style={styles.screen}>
+    <Animated.View style={[styles.screen, { opacity: fadeAnim }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
-          <Text style={styles.closeBtnText}>✕</Text>
+          <Ionicons name="close" size={20} color={Colors.inverseOnSurface} />
         </TouchableOpacity>
-        <Text style={styles.recipeName} numberOfLines={1}>{recipe.name}</Text>
-        <Text style={styles.stepCounter}>{currentStep + 1} / {totalSteps}</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.recipeName} numberOfLines={1}>{recipe.name}</Text>
+          <Text style={styles.stepSubtitle}>Étape {currentStep + 1} sur {totalSteps}</Text>
+        </View>
+        <View style={styles.stepPill}>
+          <Text style={styles.stepPillText}>{currentStep + 1}/{totalSteps}</Text>
+        </View>
       </View>
 
       {/* Progress bar */}
       <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+        <Animated.View style={[styles.progressFill, { width: `${progress * 100}%` as any }]} />
       </View>
 
-      {/* Main step */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.stepCard}>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>Étape {currentStep + 1}</Text>
+        {/* Step card */}
+        <Animated.View style={[styles.stepCard, { opacity: stepOpacity, transform: [{ translateY: stepSlide }] }]}>
+          <View style={styles.stepBadgeRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>Étape {currentStep + 1}</Text>
+            </View>
+            {currentStep === totalSteps - 1 && (
+              <View style={styles.lastBadge}>
+                <Ionicons name="flag" size={12} color={Colors.inversePrimary} />
+                <Text style={styles.lastBadgeText}>Dernière étape</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.stepText}>{recipe.instructions[currentStep]}</Text>
+        </Animated.View>
+
+        {/* Nav buttons */}
+        <View style={styles.navRow}>
+          <TouchableOpacity
+            style={[styles.navBtn, currentStep === 0 && styles.navBtnDisabled]}
+            onPress={goPrev}
+            disabled={currentStep === 0}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.inverseOnSurface} />
+            <Text style={styles.navBtnText}>Précédent</Text>
+          </TouchableOpacity>
+
+          {currentStep < totalSteps - 1 ? (
+            <TouchableOpacity style={styles.navBtnNext} onPress={goNext} activeOpacity={0.8}>
+              <Text style={styles.navBtnNextText}>Suivant</Text>
+              <Ionicons name="chevron-forward" size={20} color={Colors.onPrimary} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.finishBtn}
+              activeOpacity={0.8}
+              onPress={() => Alert.alert('Bon appétit !', 'La recette est terminée.', [
+                { text: 'Terminer', onPress: () => navigation.goBack() },
+              ])}
+            >
+              <Ionicons name="checkmark-circle" size={20} color={Colors.onPrimary} />
+              <Text style={styles.finishBtnText}>Terminer</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Timer section */}
+        {/* Timer */}
         <View style={styles.timerCard}>
-          <Text style={styles.timerTitle}>⏱ Minuteur</Text>
+          <View style={styles.timerHeader}>
+            <Ionicons name="timer-outline" size={18} color={Colors.inversePrimary} />
+            <Text style={styles.timerTitle}>Minuteur</Text>
+          </View>
           <Text style={styles.timerDisplay}>
             {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
           </Text>
           <View style={styles.timerPresets}>
             {PRESET_TIMERS.map((t) => (
-              <TouchableOpacity
-                key={t.label}
-                style={styles.presetBtn}
-                onPress={() => startTimer(t.secs)}
-              >
+              <TouchableOpacity key={t.label} style={styles.presetBtn} onPress={() => { setTimerSeconds(t.secs); setTimerRunning(true); }}>
                 <Text style={styles.presetBtnText}>{t.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
           <View style={styles.timerControls}>
             <TouchableOpacity
-              style={[styles.timerBtn, timerRunning && styles.timerBtnPause]}
-              onPress={() => setTimerRunning(!timerRunning)}
+              style={[styles.timerBtn, timerRunning && styles.timerBtnActive]}
+              onPress={() => setTimerRunning(r => !r)}
+              activeOpacity={0.8}
             >
-              <Text style={styles.timerBtnText}>{timerRunning ? '⏸ Pause' : '▶ Démarrer'}</Text>
+              <Ionicons name={timerRunning ? 'pause' : 'play'} size={17} color={Colors.onPrimary} />
+              <Text style={styles.timerBtnText}>{timerRunning ? 'Pause' : 'Démarrer'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.timerBtnReset}
+              style={styles.resetBtn}
               onPress={() => { setTimerRunning(false); setTimerSeconds(0); }}
             >
-              <Text style={styles.timerBtnResetText}>↺ Reset</Text>
+              <Ionicons name="refresh" size={16} color={Colors.inverseOnSurface} />
+              <Text style={styles.resetBtnText}>Reset</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Navigation */}
-        <View style={styles.navRow}>
-          <TouchableOpacity
-            style={[styles.navBtn, currentStep === 0 && styles.navBtnDisabled]}
-            onPress={() => currentStep > 0 && setCurrentStep(currentStep - 1)}
-            disabled={currentStep === 0}
-          >
-            <Text style={styles.navBtnText}>← Précédent</Text>
-          </TouchableOpacity>
-
-          {currentStep < totalSteps - 1 ? (
-            <TouchableOpacity
-              style={styles.navBtnPrimary}
-              onPress={() => setCurrentStep(currentStep + 1)}
-            >
-              <Text style={styles.navBtnPrimaryText}>Suivant →</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.finishBtn}
-              onPress={() => {
-                Alert.alert('🎉 Bon appétit !', 'La recette est terminée.', [
-                  { text: 'Terminer', onPress: () => navigation.goBack() },
-                ]);
-              }}
-            >
-              <Text style={styles.finishBtnText}>✅ Terminé !</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* All steps overview */}
+        {/* Steps overview */}
         <View style={styles.overviewSection}>
           <Text style={styles.overviewTitle}>Toutes les étapes</Text>
-          {recipe.instructions.map((step, idx) => (
-            <TouchableOpacity
-              key={idx}
-              style={[styles.overviewItem, currentStep === idx && styles.overviewItemActive]}
-              onPress={() => setCurrentStep(idx)}
-            >
-              <View style={[styles.overviewNum, currentStep === idx && styles.overviewNumActive]}>
-                <Text style={[styles.overviewNumText, currentStep === idx && styles.overviewNumTextActive]}>
-                  {idx + 1}
+          {recipe.instructions.map((step, idx) => {
+            const isDone = idx < currentStep;
+            const isActive = idx === currentStep;
+            return (
+              <TouchableOpacity
+                key={idx}
+                style={[styles.overviewRow, isActive && styles.overviewRowActive]}
+                onPress={() => setCurrentStep(idx)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.overviewNum, isDone && styles.overviewNumDone, isActive && styles.overviewNumActive]}>
+                  {isDone
+                    ? <Ionicons name="checkmark" size={13} color={Colors.onPrimary} />
+                    : <Text style={[styles.overviewNumText, isActive && { color: Colors.onPrimary }]}>{idx + 1}</Text>
+                  }
+                </View>
+                <Text
+                  style={[styles.overviewText, isActive && styles.overviewTextActive, isDone && styles.overviewTextDone]}
+                  numberOfLines={2}
+                >
+                  {step}
                 </Text>
-              </View>
-              <Text style={[styles.overviewText, currentStep === idx && styles.overviewTextActive]} numberOfLines={2}>
-                {step}
-              </Text>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        <View style={{ height: 80 }} />
+        <View style={{ height: insets.bottom + 40 }} />
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.inverseSurface },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.inverseSurface },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.inverseSurface, gap: Spacing.sm },
   loadingText: { fontFamily: FontFamily.body, color: Colors.inverseOnSurface },
+
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.md,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md,
   },
   closeBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 20, flexShrink: 0,
+    backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center',
   },
-  closeBtnText: { color: Colors.inverseOnSurface, fontSize: 16 },
-  recipeName: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.inverseOnSurface, flex: 1, textAlign: 'center', marginHorizontal: Spacing.sm },
-  stepCounter: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inversePrimary },
-  progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: Spacing.lg, borderRadius: 2, marginBottom: Spacing.md },
+  headerCenter: { flex: 1 },
+  recipeName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.inverseOnSurface },
+  stepSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.inversePrimary, marginTop: 2 },
+  stepPill: {
+    backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm, paddingVertical: 4,
+  },
+  stepPillText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.inverseOnSurface },
+
+  progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.12)', marginHorizontal: Spacing.lg, borderRadius: 2, marginBottom: Spacing.md },
   progressFill: { height: '100%', backgroundColor: Colors.inversePrimary, borderRadius: 2 },
+
   content: { flex: 1 },
+
   stepCard: {
-    margin: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: BorderRadius.xxl, padding: Spacing.xl,
+    margin: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: BorderRadius.xxl, padding: Spacing.lg,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)',
   },
+  stepBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.md },
   stepBadge: {
     backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.md, paddingVertical: 5,
   },
   stepBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
-  stepText: { fontFamily: FontFamily.headlineRegular, fontSize: FontSize.headlineSm, color: Colors.inverseOnSurface, lineHeight: 28 },
-  timerCard: {
-    marginHorizontal: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: BorderRadius.xxl, padding: Spacing.lg, marginBottom: Spacing.md,
-    alignItems: 'center',
+  lastBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm, paddingVertical: 4,
   },
-  timerTitle: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: Colors.inversePrimary, marginBottom: Spacing.sm },
-  timerDisplay: { fontFamily: FontFamily.headlineBold, fontSize: 48, color: Colors.inverseOnSurface, letterSpacing: 2 },
-  timerPresets: { flexDirection: 'row', gap: Spacing.xs, marginVertical: Spacing.md },
+  lastBadgeText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: Colors.inversePrimary },
+  stepText: { fontFamily: FontFamily.headlineRegular, fontSize: FontSize.headlineSm, color: Colors.inverseOnSurface, lineHeight: 28 },
+
+  navRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  navBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: BorderRadius.full, paddingVertical: 14,
+  },
+  navBtnDisabled: { opacity: 0.3 },
+  navBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inverseOnSurface },
+  navBtnNext: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 14,
+  },
+  navBtnNextText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  finishBtn: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: Colors.primaryContainer, borderRadius: BorderRadius.full, paddingVertical: 14,
+  },
+  finishBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+
+  timerCard: {
+    marginHorizontal: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: BorderRadius.xxl, padding: Spacing.lg, marginBottom: Spacing.md,
+    alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
+  },
+  timerHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.xs },
+  timerTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inversePrimary },
+  timerDisplay: { fontFamily: FontFamily.headlineBold, fontSize: 54, color: Colors.inverseOnSurface, letterSpacing: 6, marginBottom: Spacing.md },
+  timerPresets: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.md },
   presetBtn: {
     paddingHorizontal: Spacing.md, paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: BorderRadius.full,
   },
   presetBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.inverseOnSurface },
   timerControls: { flexDirection: 'row', gap: Spacing.sm },
   timerBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.xl, paddingVertical: 10,
+    paddingHorizontal: Spacing.xl, paddingVertical: 11,
   },
-  timerBtnPause: { backgroundColor: Colors.tertiary },
+  timerBtnActive: { backgroundColor: Colors.tertiary },
   timerBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
-  timerBtnReset: {
-    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.lg, paddingVertical: 10,
+  resetBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.lg, paddingVertical: 11,
   },
-  timerBtnResetText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inverseOnSurface },
-  navRow: {
-    flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg,
-  },
-  navBtn: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: BorderRadius.full,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  navBtnDisabled: { opacity: 0.3 },
-  navBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inverseOnSurface },
-  navBtnPrimary: {
-    flex: 1, backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  navBtnPrimaryText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
-  finishBtn: {
-    flex: 1, backgroundColor: Colors.secondary, borderRadius: BorderRadius.full,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  finishBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  resetBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inverseOnSurface },
+
   overviewSection: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   overviewTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.inverseOnSurface, marginBottom: Spacing.sm },
-  overviewItem: {
+  overviewRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.xl, marginBottom: Spacing.xs,
   },
-  overviewItemActive: { backgroundColor: 'rgba(255,255,255,0.1)' },
+  overviewRowActive: { backgroundColor: 'rgba(255,255,255,0.07)' },
   overviewNum: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    width: 28, height: 28, borderRadius: 14, flexShrink: 0,
+    backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center',
   },
   overviewNumActive: { backgroundColor: Colors.primary },
-  overviewNumText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.inverseOnSurface },
-  overviewNumTextActive: { color: Colors.onPrimary },
-  overviewText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.6)', flex: 1, lineHeight: 20 },
-  overviewTextActive: { color: Colors.inverseOnSurface },
+  overviewNumDone: { backgroundColor: Colors.primaryContainer },
+  overviewNumText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.55)' },
+  overviewText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.45)', flex: 1, lineHeight: 20 },
+  overviewTextActive: { color: Colors.inverseOnSurface, fontFamily: FontFamily.bodyMedium },
+  overviewTextDone: { opacity: 0.4 },
 });

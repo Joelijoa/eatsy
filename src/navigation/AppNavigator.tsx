@@ -25,6 +25,7 @@ import { BudgetScreen } from '../screens/main/BudgetScreen';
 import { CookingModeScreen } from '../screens/main/CookingModeScreen';
 import { FoodScannerScreen } from '../screens/main/FoodScannerScreen';
 import { SettingsScreen } from '../screens/main/SettingsScreen';
+import { PantryScreen } from '../screens/main/PantryScreen';
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -66,25 +67,61 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: [styles.tabBar, { paddingBottom: insets.bottom + 28 }],
+        tabBarStyle: [styles.tabBar, { height: 58 + insets.bottom, paddingBottom: insets.bottom + 4 }],
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.outline,
-        tabBarLabelStyle: styles.tabLabel,
+        tabBarShowLabel: true,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' as const },
       }}
     >
-      {TAB_CONFIG.map(({ name, labelKey, icon, iconActive, component }) => (
-        <Tab.Screen
-          key={name}
-          name={name}
-          component={component}
-          options={{
-            tabBarLabel: t(labelKey),
-            tabBarIcon: ({ focused, color }) => (
-              <Ionicons name={focused ? iconActive : icon} size={22} color={color} />
-            ),
-          }}
-        />
-      ))}
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{
+          tabBarLabel: t('tabs_home'),
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="WeeklyPlanner"
+        component={WeeklyPlannerScreen}
+        options={{
+          tabBarLabel: t('tabs_planner'),
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={22} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Recipes"
+        component={RecipeStackNavigator}
+        options={{
+          tabBarLabel: t('tabs_recipes'),
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="ShoppingList"
+        component={ShoppingListScreen}
+        options={{
+          tabBarLabel: t('tabs_shopping'),
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'cart' : 'cart-outline'} size={22} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Budget"
+        component={BudgetScreen}
+        options={{
+          tabBarLabel: t('tabs_budget'),
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={22} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Pantry"
+        component={PantryScreen}
+        options={{
+          tabBarLabel: t('tabs_stock'),
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'cube' : 'cube-outline'} size={22} color={color} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -137,17 +174,11 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: Colors.surfaceContainerLowest,
     borderTopWidth: 0,
-    elevation: 0,
-    shadowColor: Colors.onSurface,
-    shadowOffset: { width: 0, height: -1 },
-    shadowOpacity: 0.06,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
     shadowRadius: 12,
-    height: 95,
-    paddingTop: 10,
-  },
-  tabLabel: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: 10,
-    marginTop: 2,
+    paddingTop: 6,
   },
 });

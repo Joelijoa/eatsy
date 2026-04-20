@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, Alert, KeyboardAvoidingView, Platform,
+  TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { EatsyButton } from '../../components/EatsyButton';
 import { useAuth } from '../../context/AuthContext';
 import { addRecipe, updateRecipe, getRecipe, getCategories } from '../../services/recipeService';
 import { Recipe, Ingredient, Category, WellnessType } from '../../types';
+import { usePreferences } from '../../context/PreferencesContext';
 
 const WELLNESS_OPTIONS: Array<{
   value: WellnessType;
@@ -35,9 +36,12 @@ type Props = { navigation: any; route: any };
 
 export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAuth();
+  const { formatCurrency, currencySymbol } = usePreferences();
   const insets = useSafeAreaInsets();
   const recipeId = route.params?.recipeId;
   const isEdit = !!recipeId;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(28)).current;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -53,6 +57,10 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 200 }),
+    ]).start();
     if (user) getCategories(user.uid).then(setCategories);
     if (isEdit) {
       getRecipe(recipeId).then((r) => {
@@ -138,17 +146,25 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.screen]}>
-        {/* Top bar */}
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color={Colors.onSurface} />
-          </TouchableOpacity>
-          <Text style={styles.topBarTitle}>{isEdit ? 'Modifier la recette' : 'Nouvelle recette'}</Text>
-          <View style={{ width: 40 }} />
+      <View style={styles.screen}>
+        {/* Header */}
+        <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
+          <View style={styles.headerDecor} />
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={20} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{isEdit ? 'Modifier la recette' : 'Nouvelle recette'}</Text>
+            <View style={{ width: 40 }} />
+          </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+        <Animated.ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+          style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+        >
 
           {/* Image picker */}
           <TouchableOpacity style={styles.imagePicker} onPress={pickImage} activeOpacity={0.85}>
@@ -263,7 +279,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={styles.cardTitle}>Ingrédients</Text>
               <View style={styles.cardHeaderRight}>
                 <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
-                <Text style={styles.totalCostText}>{totalCost.toFixed(2)} €</Text>
+                <Text style={styles.totalCostText}>{formatCurrency(totalCost)}</Text>
               </View>
             </View>
 
@@ -296,7 +312,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                     <EatsyInput label="Unité" value={ing.unit} onChangeText={(v) => updateIngredient(ing.id, 'unit', v)} placeholder="g" />
                   </View>
                   <View style={styles.third}>
-                    <EatsyInput label="Prix (€)" value={String(ing.price)} onChangeText={(v) => updateIngredient(ing.id, 'price', parseFloat(v) || 0)} keyboardType="numeric" placeholder="0.50" />
+                    <EatsyInput label={`Prix (${currencySymbol})`} value={String(ing.price)} onChangeText={(v) => updateIngredient(ing.id, 'price', parseFloat(v) || 0)} keyboardType="numeric" placeholder="0.50" />
                   </View>
                 </View>
               </View>
@@ -364,7 +380,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               loading={loading}
             />
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
     </KeyboardAvoidingView>
   );
@@ -373,17 +389,21 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: Colors.surface },
-
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md,
-    backgroundColor: Colors.surface,
+  headerBand: {
+    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md + 16, overflow: 'hidden',
+    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
+  headerDecor: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.06)', top: -70, right: -40,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
   },
-  topBarTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface },
+  headerTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: '#fff' },
 
   imagePicker: {
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
