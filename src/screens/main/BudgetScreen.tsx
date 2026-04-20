@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
+import { usePreferences } from '../../context/PreferencesContext';
 import { getOrCreateWeekPlan, getWeekStart } from '../../services/plannerService';
 import { WeekPlan } from '../../types';
 import { updateDoc, doc } from 'firebase/firestore';
@@ -20,6 +21,7 @@ const MEAL_LABELS: Record<string, string> = {
 
 export const BudgetScreen: React.FC = () => {
   const { user } = useAuth();
+  const { formatCurrency, currencySymbol } = usePreferences();
   const insets = useSafeAreaInsets();
   const [plan, setPlan] = useState<WeekPlan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,7 +84,7 @@ export const BudgetScreen: React.FC = () => {
             <View>
               <Text style={styles.heroLabel}>Total semaine</Text>
               <Text style={[styles.heroAmount, isOver && styles.heroAmountOver]}>
-                {weeklyTotal.toFixed(2)} €
+                {formatCurrency(weeklyTotal)}
               </Text>
             </View>
             <View style={styles.heroRight}>
@@ -99,13 +101,13 @@ export const BudgetScreen: React.FC = () => {
                     keyboardType="numeric"
                     selectTextOnFocus
                   />
-                  <Text style={styles.budgetCurrency}>€</Text>
+                  <Text style={styles.budgetCurrency}>{currencySymbol}</Text>
                   <TouchableOpacity style={styles.saveBtn} onPress={saveBudget}>
                     <Text style={styles.saveBtnText}>OK</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
-                <Text style={styles.limitLabel}>/ {limit.toFixed(0)} € max</Text>
+                <Text style={styles.limitLabel}>/ {formatCurrency(limit)} max</Text>
               )}
             </View>
           </View>
@@ -120,7 +122,7 @@ export const BudgetScreen: React.FC = () => {
           {isOver && (
             <View style={styles.overBudgetBadge}>
               <Ionicons name="warning-outline" size={14} color={Colors.tertiary} />
-              <Text style={styles.overBudgetText}>Dépassement de {(weeklyTotal - limit).toFixed(2)} €</Text>
+              <Text style={styles.overBudgetText}>Dépassement de {formatCurrency(weeklyTotal - limit)}</Text>
             </View>
           )}
         </View>
@@ -128,9 +130,9 @@ export const BudgetScreen: React.FC = () => {
         {/* Stats */}
         <View style={styles.statsRow}>
           {[
-            { label: 'Moy./jour', value: `${(weeklyTotal / 7).toFixed(2)} €` },
-            { label: 'Restant', value: `${Math.max(0, limit - weeklyTotal).toFixed(2)} €`, highlight: !isOver },
-            { label: 'Économies', value: isOver ? '—' : `${(limit - weeklyTotal).toFixed(2)} €`, highlight: !isOver },
+            { label: 'Moy./jour', value: formatCurrency(weeklyTotal / 7) },
+            { label: 'Restant', value: formatCurrency(Math.max(0, limit - weeklyTotal)), highlight: !isOver },
+            { label: 'Économies', value: isOver ? '—' : formatCurrency(limit - weeklyTotal), highlight: !isOver },
           ].map((s, i) => (
             <View key={i} style={styles.statCard}>
               <Text style={[styles.statValue, s.highlight && styles.statValueGreen]}>{s.value}</Text>
@@ -147,14 +149,14 @@ export const BudgetScreen: React.FC = () => {
               <View style={styles.dayHeader}>
                 <Text style={styles.dayLabel}>{label}</Text>
                 <Text style={[styles.dayTotal, total > 0 && styles.dayTotalActive]}>
-                  {total > 0 ? `${total.toFixed(2)} €` : '—'}
+                  {total > 0 ? formatCurrency(total) : '—'}
                 </Text>
               </View>
               {mealDetails.map((m, idx) => (
                 <View key={idx} style={styles.mealLine}>
                   <Text style={styles.mealLineLabel}>{m.label}</Text>
                   <Text style={styles.mealLineName} numberOfLines={1}>{m.name}</Text>
-                  <Text style={styles.mealLineCost}>{m.cost.toFixed(2)} €</Text>
+                  <Text style={styles.mealLineCost}>{formatCurrency(m.cost)}</Text>
                 </View>
               ))}
               {mealDetails.length === 0 && (

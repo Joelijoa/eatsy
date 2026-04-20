@@ -7,6 +7,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
 import { Colors } from '../constants/colors';
 import { FontFamily, FontSize } from '../constants/typography';
 
@@ -23,20 +24,13 @@ import { ShoppingListScreen } from '../screens/main/ShoppingListScreen';
 import { BudgetScreen } from '../screens/main/BudgetScreen';
 import { CookingModeScreen } from '../screens/main/CookingModeScreen';
 import { FoodScannerScreen } from '../screens/main/FoodScannerScreen';
+import { SettingsScreen } from '../screens/main/SettingsScreen';
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const RecipeStack = createNativeStackNavigator();
 
 type TabIconName = keyof typeof Ionicons.glyphMap;
-
-const TAB_CONFIG: Record<string, { label: string; icon: TabIconName; iconActive: TabIconName }> = {
-  Dashboard:    { label: 'Accueil',  icon: 'home-outline',         iconActive: 'home' },
-  WeeklyPlanner:{ label: 'Planning', icon: 'calendar-outline',      iconActive: 'calendar' },
-  Recipes:      { label: 'Recettes', icon: 'book-outline',          iconActive: 'book' },
-  ShoppingList: { label: 'Courses',  icon: 'cart-outline',          iconActive: 'cart' },
-  Budget:       { label: 'Budget',   icon: 'wallet-outline',        iconActive: 'wallet' },
-};
 
 function RecipeStackNavigator() {
   return (
@@ -52,34 +46,52 @@ function RecipeStackNavigator() {
 
 function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { t } = usePreferences();
+
+  const TAB_CONFIG: Array<{
+    name: string;
+    labelKey: string;
+    icon: TabIconName;
+    iconActive: TabIconName;
+    component: React.ComponentType<any>;
+  }> = [
+    { name: 'Dashboard',     labelKey: 'tabs_home',     icon: 'home-outline',     iconActive: 'home',     component: DashboardScreen },
+    { name: 'WeeklyPlanner', labelKey: 'tabs_planner',  icon: 'calendar-outline', iconActive: 'calendar', component: WeeklyPlannerScreen },
+    { name: 'Recipes',       labelKey: 'tabs_recipes',  icon: 'book-outline',     iconActive: 'book',     component: RecipeStackNavigator },
+    { name: 'ShoppingList',  labelKey: 'tabs_shopping', icon: 'cart-outline',     iconActive: 'cart',     component: ShoppingListScreen },
+    { name: 'Budget',        labelKey: 'tabs_budget',   icon: 'wallet-outline',   iconActive: 'wallet',   component: BudgetScreen },
+  ];
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarStyle: [styles.tabBar, { paddingBottom: insets.bottom + 28 }],
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.outline,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarLabel: TAB_CONFIG[route.name]?.label ?? route.name,
-        tabBarIcon: ({ focused, color, size }) => {
-          const cfg = TAB_CONFIG[route.name];
-          const iconName: TabIconName = focused ? cfg.iconActive : cfg.icon;
-          return <Ionicons name={iconName} size={22} color={color} />;
-        },
-      })}
+      }}
     >
-      <Tab.Screen name="Dashboard"     component={DashboardScreen} />
-      <Tab.Screen name="WeeklyPlanner" component={WeeklyPlannerScreen} />
-      <Tab.Screen name="Recipes"       component={RecipeStackNavigator} />
-      <Tab.Screen name="ShoppingList"  component={ShoppingListScreen} />
-      <Tab.Screen name="Budget"        component={BudgetScreen} />
+      {TAB_CONFIG.map(({ name, labelKey, icon, iconActive, component }) => (
+        <Tab.Screen
+          key={name}
+          name={name}
+          component={component}
+          options={{
+            tabBarLabel: t(labelKey),
+            tabBarIcon: ({ focused, color }) => (
+              <Ionicons name={focused ? iconActive : icon} size={22} color={color} />
+            ),
+          }}
+        />
+      ))}
     </Tab.Navigator>
   );
 }
 
 export const AppNavigator: React.FC = () => {
   const { user, loading } = useAuth();
+  const { t } = usePreferences();
 
   if (loading) {
     return (
@@ -96,12 +108,15 @@ export const AppNavigator: React.FC = () => {
       <NavigationContainer>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
           {user ? (
-            <RootStack.Screen name="MainTabs" component={MainTabs} />
+            <>
+              <RootStack.Screen name="MainTabs" component={MainTabs} />
+              <RootStack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
+            </>
           ) : (
             <>
-              <RootStack.Screen name="Login"          component={LoginScreen} />
-              <RootStack.Screen name="Register"        component={RegisterScreen} />
-              <RootStack.Screen name="ForgotPassword"  component={ForgotPasswordScreen} />
+              <RootStack.Screen name="Login"         component={LoginScreen} />
+              <RootStack.Screen name="Register"      component={RegisterScreen} />
+              <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             </>
           )}
         </RootStack.Navigator>

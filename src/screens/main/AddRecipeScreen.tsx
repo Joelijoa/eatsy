@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView,
+  View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -12,12 +14,16 @@ import { useAuth } from '../../context/AuthContext';
 import { addRecipe, updateRecipe, getRecipe, getCategories } from '../../services/recipeService';
 import { Recipe, Ingredient, Category, WellnessType } from '../../types';
 
-type Props = { navigation: any; route: any };
-
-const WELLNESS_OPTIONS: Array<{ value: WellnessType; label: string; emoji: string }> = [
-  { value: 'balanced', label: 'Équilibré', emoji: '🥗' },
-  { value: 'quick', label: 'Rapide', emoji: '⚡' },
-  { value: 'indulgent', label: 'Plaisir', emoji: '🍰' },
+const WELLNESS_OPTIONS: Array<{
+  value: WellnessType;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  bg: string;
+}> = [
+  { value: 'balanced',  label: 'Équilibré', icon: 'leaf-outline',  color: Colors.primary,  bg: `${Colors.primary}15` },
+  { value: 'quick',     label: 'Rapide',    icon: 'flash-outline', color: Colors.tertiary, bg: `${Colors.tertiary}18` },
+  { value: 'indulgent', label: 'Plaisir',   icon: 'heart-outline', color: Colors.error,    bg: `${Colors.error}15` },
 ];
 
 const emptyIngredient = (): Ingredient => ({
@@ -25,8 +31,11 @@ const emptyIngredient = (): Ingredient => ({
   name: '', quantity: 1, unit: 'g', price: 0,
 });
 
+type Props = { navigation: any; route: any };
+
 export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const recipeId = route.params?.recipeId;
   const isEdit = !!recipeId;
 
@@ -92,8 +101,8 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!name.trim()) return Alert.alert('Nom requis');
-    if (ingredients.some((i) => !i.name.trim())) return Alert.alert('Tous les ingrédients doivent avoir un nom');
+    if (!name.trim()) return Alert.alert('Nom requis', 'Veuillez saisir un nom pour la recette.');
+    if (ingredients.some((i) => !i.name.trim())) return Alert.alert('Ingrédient incomplet', 'Tous les ingrédients doivent avoir un nom.');
 
     setLoading(true);
     try {
@@ -129,137 +138,234 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.screen} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backText}>← Retour</Text>
+      <View style={[styles.screen]}>
+        {/* Top bar */}
+        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={20} color={Colors.onSurface} />
           </TouchableOpacity>
-          <Text style={styles.title}>{isEdit ? 'Modifier' : 'Nouvelle recette'}</Text>
+          <Text style={styles.topBarTitle}>{isEdit ? 'Modifier la recette' : 'Nouvelle recette'}</Text>
+          <View style={{ width: 40 }} />
         </View>
 
-        <View style={styles.section}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+
           {/* Image picker */}
-          <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+          <TouchableOpacity style={styles.imagePicker} onPress={pickImage} activeOpacity={0.85}>
             {imageUri ? (
-              <Text style={styles.imagePickerHint}>📷 Photo sélectionnée ✓</Text>
+              <>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <View style={styles.imageOverlay}>
+                  <View style={styles.imageEditBadge}>
+                    <Ionicons name="camera" size={16} color="#fff" />
+                    <Text style={styles.imageEditText}>Changer</Text>
+                  </View>
+                </View>
+              </>
             ) : (
-              <Text style={styles.imagePickerHint}>📷 Ajouter une photo</Text>
+              <View style={styles.imagePlaceholder}>
+                <View style={styles.imagePlaceholderIcon}>
+                  <Ionicons name="camera-outline" size={28} color={Colors.primary} />
+                </View>
+                <Text style={styles.imagePlaceholderText}>Ajouter une photo</Text>
+                <Text style={styles.imagePlaceholderSub}>Optionnel · JPG, PNG</Text>
+              </View>
             )}
           </TouchableOpacity>
 
-          <EatsyInput label="Nom de la recette" value={name} onChangeText={setName} placeholder="Ex: Poulet rôti aux herbes" />
-          <EatsyInput label="Description" value={description} onChangeText={setDescription} placeholder="Courte description..." multiline numberOfLines={2} />
-
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <EatsyInput label="Prép. (min)" value={prepTime} onChangeText={setPrepTime} keyboardType="numeric" placeholder="15" />
+          {/* General info */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderIcon}>
+                <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
+              </View>
+              <Text style={styles.cardTitle}>Informations générales</Text>
             </View>
-            <View style={styles.half}>
-              <EatsyInput label="Cuisson (min)" value={cookTime} onChangeText={setCookTime} keyboardType="numeric" placeholder="30" />
+
+            <EatsyInput label="Nom de la recette *" value={name} onChangeText={setName} placeholder="Ex: Poulet rôti aux herbes" />
+            <EatsyInput label="Description" value={description} onChangeText={setDescription} placeholder="Courte description..." multiline numberOfLines={2} />
+
+            <View style={styles.row}>
+              <View style={styles.half}>
+                <EatsyInput label="Préparation (min)" value={prepTime} onChangeText={setPrepTime} keyboardType="numeric" placeholder="15" />
+              </View>
+              <View style={styles.half}>
+                <EatsyInput label="Cuisson (min)" value={cookTime} onChangeText={setCookTime} keyboardType="numeric" placeholder="30" />
+              </View>
+            </View>
+            <EatsyInput label="Nombre de personnes" value={servings} onChangeText={setServings} keyboardType="numeric" placeholder="4" />
+          </View>
+
+          {/* Wellness type */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderIcon}>
+                <Ionicons name="heart-circle-outline" size={18} color={Colors.primary} />
+              </View>
+              <Text style={styles.cardTitle}>Type de repas</Text>
+            </View>
+
+            <View style={styles.wellnessRow}>
+              {WELLNESS_OPTIONS.map((w) => {
+                const active = wellnessType === w.value;
+                return (
+                  <TouchableOpacity
+                    key={w.value}
+                    style={[styles.wellnessOption, { backgroundColor: active ? w.bg : Colors.surfaceContainerLow }, active && { borderColor: w.color }]}
+                    onPress={() => setWellnessType(w.value)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.wellnessIconWrap, { backgroundColor: active ? w.color : Colors.surfaceContainerHigh }]}>
+                      <Ionicons name={w.icon} size={18} color={active ? '#fff' : Colors.onSurfaceVariant} />
+                    </View>
+                    <Text style={[styles.wellnessLabel, active && { color: w.color, fontFamily: FontFamily.bodyBold }]}>{w.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
-          <EatsyInput label="Nombre de personnes" value={servings} onChangeText={setServings} keyboardType="numeric" placeholder="4" />
-        </View>
 
-        {/* Wellness type */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Type de repas</Text>
-          <View style={styles.wellnessRow}>
-            {WELLNESS_OPTIONS.map((w) => (
-              <TouchableOpacity
-                key={w.value}
-                style={[styles.wellnessOption, wellnessType === w.value && styles.wellnessOptionActive]}
-                onPress={() => setWellnessType(w.value)}
-              >
-                <Text style={styles.wellnessEmoji}>{w.emoji}</Text>
-                <Text style={[styles.wellnessLabel, wellnessType === w.value && styles.wellnessLabelActive]}>{w.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+          {/* Category */}
+          {categories.length > 0 && (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderIcon}>
+                  <Ionicons name="grid-outline" size={18} color={Colors.primary} />
+                </View>
+                <Text style={styles.cardTitle}>Catégorie</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+                <TouchableOpacity
+                  style={[styles.catChip, !categoryId && styles.catChipActive]}
+                  onPress={() => setCategoryId('')}
+                >
+                  <Text style={[styles.catChipText, !categoryId && styles.catChipTextActive]}>Toutes</Text>
+                </TouchableOpacity>
+                {categories.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.catChip, categoryId === c.id && styles.catChipActive]}
+                    onPress={() => setCategoryId(c.id)}
+                  >
+                    <Text style={[styles.catChipText, categoryId === c.id && styles.catChipTextActive]}>{c.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
-        {/* Ingredients */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Ingrédients</Text>
-            <Text style={styles.totalCost}>Total: {totalCost.toFixed(2)}€</Text>
-          </View>
+          {/* Ingredients */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderIcon}>
+                <Ionicons name="basket-outline" size={18} color={Colors.primary} />
+              </View>
+              <Text style={styles.cardTitle}>Ingrédients</Text>
+              <View style={styles.cardHeaderRight}>
+                <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
+                <Text style={styles.totalCostText}>{totalCost.toFixed(2)} €</Text>
+              </View>
+            </View>
 
-          {ingredients.map((ing, idx) => (
-            <View key={ing.id} style={styles.ingredientCard}>
-              <View style={styles.ingRow}>
+            {ingredients.map((ing, idx) => (
+              <View key={ing.id} style={styles.ingredientBlock}>
+                <View style={styles.ingredientBlockHeader}>
+                  <View style={styles.ingIndex}>
+                    <Text style={styles.ingIndexText}>{idx + 1}</Text>
+                  </View>
+                  <Text style={styles.ingLabel}>Ingrédient {idx + 1}</Text>
+                  <TouchableOpacity
+                    style={styles.removeIconBtn}
+                    onPress={() => removeIngredient(ing.id)}
+                    disabled={ingredients.length === 1}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={ingredients.length === 1 ? Colors.outlineVariant : Colors.error} />
+                  </TouchableOpacity>
+                </View>
                 <EatsyInput
-                  label="Ingrédient"
+                  label="Nom"
                   value={ing.name}
                   onChangeText={(v) => updateIngredient(ing.id, 'name', v)}
                   placeholder="Ex: Farine"
-                  style={styles.ingNameInput}
                 />
-                <TouchableOpacity style={styles.removeBtn} onPress={() => removeIngredient(ing.id)}>
-                  <Text style={styles.removeBtnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.row}>
-                <View style={styles.third}>
-                  <EatsyInput label="Qté" value={String(ing.quantity)} onChangeText={(v) => updateIngredient(ing.id, 'quantity', parseFloat(v) || 0)} keyboardType="numeric" placeholder="100" />
-                </View>
-                <View style={styles.third}>
-                  <EatsyInput label="Unité" value={ing.unit} onChangeText={(v) => updateIngredient(ing.id, 'unit', v)} placeholder="g" />
-                </View>
-                <View style={styles.third}>
-                  <EatsyInput label="Prix (€)" value={String(ing.price)} onChangeText={(v) => updateIngredient(ing.id, 'price', parseFloat(v) || 0)} keyboardType="numeric" placeholder="0.50" />
+                <View style={styles.row}>
+                  <View style={styles.third}>
+                    <EatsyInput label="Quantité" value={String(ing.quantity)} onChangeText={(v) => updateIngredient(ing.id, 'quantity', parseFloat(v) || 0)} keyboardType="numeric" placeholder="100" />
+                  </View>
+                  <View style={styles.third}>
+                    <EatsyInput label="Unité" value={ing.unit} onChangeText={(v) => updateIngredient(ing.id, 'unit', v)} placeholder="g" />
+                  </View>
+                  <View style={styles.third}>
+                    <EatsyInput label="Prix (€)" value={String(ing.price)} onChangeText={(v) => updateIngredient(ing.id, 'price', parseFloat(v) || 0)} keyboardType="numeric" placeholder="0.50" />
+                  </View>
                 </View>
               </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.addRowBtn}
+              onPress={() => setIngredients((prev) => [...prev, emptyIngredient()])}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+              <Text style={styles.addRowBtnText}>Ajouter un ingrédient</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Instructions */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderIcon}>
+                <Ionicons name="list-outline" size={18} color={Colors.primary} />
+              </View>
+              <Text style={styles.cardTitle}>Instructions</Text>
             </View>
-          ))}
 
-          <TouchableOpacity
-            style={styles.addItemBtn}
-            onPress={() => setIngredients((prev) => [...prev, emptyIngredient()])}
-          >
-            <Text style={styles.addItemBtnText}>+ Ajouter un ingrédient</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Instructions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Instructions</Text>
-
-          {instructions.map((step, idx) => (
-            <View key={idx} style={styles.stepCard}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>{idx + 1}</Text>
+            {instructions.map((step, idx) => (
+              <View key={idx} style={styles.stepRow}>
+                <View style={styles.stepLeft}>
+                  <View style={styles.stepNum}>
+                    <Text style={styles.stepNumText}>{idx + 1}</Text>
+                  </View>
+                  {idx < instructions.length - 1 && <View style={styles.stepConnector} />}
+                </View>
+                <View style={styles.stepRight}>
+                  <EatsyInput
+                    label=""
+                    value={step}
+                    onChangeText={(v) => updateInstruction(idx, v)}
+                    placeholder={`Décrivez l'étape ${idx + 1}...`}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={styles.stepRemoveBtn}
+                    onPress={() => removeInstruction(idx)}
+                    disabled={instructions.length === 1}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color={instructions.length === 1 ? Colors.outlineVariant : Colors.outline} />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.stepInputWrapper}>
-                <EatsyInput
-                  label=""
-                  value={step}
-                  onChangeText={(v) => updateInstruction(idx, v)}
-                  placeholder={`Étape ${idx + 1}...`}
-                  multiline
-                />
-              </View>
-              <TouchableOpacity onPress={() => removeInstruction(idx)} style={styles.removeBtn}>
-                <Text style={styles.removeBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+            ))}
 
-          <TouchableOpacity
-            style={styles.addItemBtn}
-            onPress={() => setInstructions((prev) => [...prev, ''])}
-          >
-            <Text style={styles.addItemBtnText}>+ Ajouter une étape</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={styles.addRowBtn}
+              onPress={() => setInstructions((prev) => [...prev, ''])}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+              <Text style={styles.addRowBtnText}>Ajouter une étape</Text>
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.saveSection}>
-          <EatsyButton label={isEdit ? 'Enregistrer les modifications' : 'Créer la recette'} onPress={handleSave} loading={loading} />
-        </View>
-
-        <View style={{ height: 80 }} />
-      </ScrollView>
+          {/* Save */}
+          <View style={styles.saveSection}>
+            <EatsyButton
+              label={isEdit ? 'Enregistrer les modifications' : 'Créer la recette'}
+              onPress={handleSave}
+              loading={loading}
+            />
+          </View>
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 };
@@ -267,49 +373,118 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: Colors.surface },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.md },
-  backText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
-  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: Colors.onSurface, flex: 1 },
-  section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.onSurface, marginBottom: Spacing.sm },
-  totalCost: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.primary },
-  imagePicker: {
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
-    padding: Spacing.xl, alignItems: 'center', marginBottom: Spacing.md,
-    borderWidth: 1.5, borderColor: Colors.outlineVariant, borderStyle: 'dashed',
+
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md,
+    backgroundColor: Colors.surface,
   },
-  imagePickerHint: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+  },
+  topBarTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface },
+
+  imagePicker: {
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
+    borderRadius: BorderRadius.xxl, overflow: 'hidden', height: 180,
+  },
+  imagePreview: { width: '100%', height: '100%' },
+  imageOverlay: {
+    position: 'absolute', inset: 0 as any,
+    backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center',
+  },
+  imageEditBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: Spacing.md, paddingVertical: 8,
+    borderRadius: BorderRadius.full,
+  },
+  imageEditText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: '#fff' },
+  imagePlaceholder: {
+    flex: 1, backgroundColor: Colors.surfaceContainerLow,
+    alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: Colors.outlineVariant, borderStyle: 'dashed',
+    borderRadius: BorderRadius.xxl,
+  },
+  imagePlaceholderIcon: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center',
+  },
+  imagePlaceholderText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  imagePlaceholderSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
+
+  card: {
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
+    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    padding: Spacing.lg,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.md },
+  cardHeaderIcon: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center',
+  },
+  cardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.onSurface, flex: 1 },
+  cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  totalCostText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.primary },
+
   row: { flexDirection: 'row', gap: Spacing.sm },
   half: { flex: 1 },
   third: { flex: 1 },
+
   wellnessRow: { flexDirection: 'row', gap: Spacing.sm },
   wellnessOption: {
-    flex: 1, alignItems: 'center', padding: Spacing.md,
+    flex: 1, alignItems: 'center', paddingVertical: Spacing.md, paddingHorizontal: 4,
+    borderRadius: BorderRadius.xl, borderWidth: 1.5, borderColor: 'transparent', gap: 6,
+  },
+  wellnessIconWrap: {
+    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+  },
+  wellnessLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant, textAlign: 'center' },
+
+  categoryRow: { flexDirection: 'row', gap: Spacing.xs, paddingBottom: 4 },
+  catChip: {
+    paddingHorizontal: Spacing.md, paddingVertical: 7,
+    backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.full,
+  },
+  catChipActive: { backgroundColor: Colors.primary },
+  catChipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
+  catChipTextActive: { color: Colors.onPrimary },
+
+  ingredientBlock: {
     backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
-    borderWidth: 1.5, borderColor: 'transparent',
+    padding: Spacing.md, marginBottom: Spacing.sm,
   },
-  wellnessOptionActive: { backgroundColor: Colors.secondaryContainer, borderColor: Colors.secondary },
-  wellnessEmoji: { fontSize: 24 },
-  wellnessLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 4 },
-  wellnessLabelActive: { color: Colors.onSecondaryContainer, fontFamily: FontFamily.bodyBold },
-  ingredientCard: { backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl, padding: Spacing.md, marginBottom: Spacing.sm },
-  ingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs },
-  ingNameInput: { flex: 1 },
-  removeBtn: { paddingTop: 28, paddingLeft: Spacing.xs },
-  removeBtnText: { color: Colors.outline, fontSize: 14 },
-  addItemBtn: {
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
-    padding: Spacing.md, alignItems: 'center', borderWidth: 1.5,
-    borderColor: Colors.outlineVariant, borderStyle: 'dashed',
+  ingredientBlockHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: 6 },
+  ingIndex: {
+    width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
   },
-  addItemBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
-  stepCard: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.xs },
-  stepNumber: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center', marginTop: 28, flexShrink: 0,
+  ingIndexText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: Colors.onPrimary },
+  ingLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurface, flex: 1 },
+  removeIconBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
-  stepNumberText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
-  stepInputWrapper: { flex: 1 },
-  saveSection: { paddingHorizontal: Spacing.lg, marginTop: Spacing.sm },
+
+  addRowBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: Spacing.md, borderRadius: BorderRadius.xl,
+    borderWidth: 1.5, borderColor: Colors.outlineVariant, borderStyle: 'dashed',
+    marginTop: Spacing.xs,
+  },
+  addRowBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
+
+  stepRow: { flexDirection: 'row', marginBottom: 4 },
+  stepLeft: { alignItems: 'center', width: 36, paddingTop: 10 },
+  stepNum: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center', zIndex: 1,
+  },
+  stepNumText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
+  stepConnector: { width: 2, flex: 1, backgroundColor: Colors.surfaceContainerHigh, marginTop: 4 },
+  stepRight: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
+  stepRemoveBtn: { paddingTop: 10 },
+
+  saveSection: { paddingHorizontal: Spacing.lg, marginTop: Spacing.xs },
 });
