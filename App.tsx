@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
 import {
   useFonts,
   PlusJakartaSans_400Regular,
@@ -12,6 +11,7 @@ import {
   BeVietnamPro_700Bold,
 } from '@expo-google-fonts/be-vietnam-pro';
 import { View, Text, StyleSheet, Animated } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import { PreferencesProvider } from './src/context/PreferencesContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
@@ -101,12 +101,13 @@ export default function App() {
   if (!fontsLoaded) return <SplashScreen />;
 
   return (
-    <PreferencesProvider>
-      <AuthProvider>
-        <StatusBar style="dark" backgroundColor={Colors.surface} />
-        <AppNavigator />
-      </AuthProvider>
-    </PreferencesProvider>
+    <SafeAreaProvider>
+      <PreferencesProvider>
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
+      </PreferencesProvider>
+    </SafeAreaProvider>
   );
 }
 

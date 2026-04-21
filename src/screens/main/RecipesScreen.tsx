@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { usePreferences } from '../../context/PreferencesContext';
 import { getRecipes, getCategories } from '../../services/recipeService';
 import { Recipe, Category, WellnessType } from '../../types';
+import { HeaderActions } from '../../components/HeaderActions';
 
 const WELLNESS_COLOR: Record<WellnessType, string> = {
   balanced: Colors.primary,
@@ -132,10 +133,15 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
       {/* Header */}
       <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerDecor} />
-        <Text style={styles.title}>{t('recipes_title')}</Text>
-        <Text style={styles.headerSub}>
-          {filtered.length} {filtered.length !== 1 ? t('recipes_count_many') : t('recipes_count_one')}
-        </Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>{t('recipes_title')}</Text>
+            <Text style={styles.headerSub}>
+              {filtered.length} {filtered.length !== 1 ? t('recipes_count_many') : t('recipes_count_one')}
+            </Text>
+          </View>
+          <HeaderActions navigation={navigation} />
+        </View>
       </View>
 
       {/* Search */}
@@ -209,7 +215,7 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
       />
 
       {/* FABs */}
-      <View style={[styles.fabRow, { bottom: insets.bottom + 90 }]}>
+      <View style={[styles.fabRow, { bottom: insets.bottom + 0 }]}>
         <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={() => navigation.navigate('FoodScanner')}>
           <Ionicons name="barcode-outline" size={22} color={Colors.primary} />
         </TouchableOpacity>
@@ -232,6 +238,7 @@ const styles = StyleSheet.create({
     position: 'absolute', width: 220, height: 220, borderRadius: 110,
     backgroundColor: 'rgba(255,255,255,0.06)', top: -80, right: -50,
   },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
   headerSub: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   searchBar: {
@@ -246,9 +253,8 @@ const styles = StyleSheet.create({
   filterRow: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm, gap: Spacing.xs },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: Spacing.md, paddingVertical: 6,
+    paddingHorizontal: Spacing.md, height: 34,
     backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.full,
-    borderWidth: 1, borderColor: 'transparent',
   },
   wellnessDot: { width: 7, height: 7, borderRadius: 3.5 },
   chipActive: { backgroundColor: Colors.primary },

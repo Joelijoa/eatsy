@@ -16,10 +16,11 @@ import {
 } from '../../services/shoppingListService';
 import { addOrMergePantryItem } from '../../services/pantryService';
 import { ShoppingItem } from '../../types';
+import { HeaderActions } from '../../components/HeaderActions';
 
 const UNITS = ['pcs', 'kg', 'g', 'L', 'cl', 'ml', 'sachet', 'boîte', 'bouteille'];
 
-export const ShoppingListScreen: React.FC = () => {
+export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
   const { t, formatCurrency } = usePreferences();
   const insets = useSafeAreaInsets();
@@ -167,9 +168,7 @@ export const ShoppingListScreen: React.FC = () => {
                 <Ionicons name="checkmark-done-outline" size={16} color="rgba(255,255,255,0.85)" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.addBtn} onPress={openModal}>
-              <Ionicons name="add" size={20} color={Colors.primary} />
-            </TouchableOpacity>
+            <HeaderActions navigation={navigation} />
           </View>
         </View>
         {items.length > 0 && (

@@ -14,6 +14,7 @@ import { getRecipes } from '../../services/recipeService';
 import { getOrCreateWeekPlan, getWeekStart } from '../../services/plannerService';
 import { seedTestData } from '../../services/seedData';
 import { Recipe, WeekPlan, DayPlan, WellnessType } from '../../types';
+import { HeaderActions } from '../../components/HeaderActions';
 
 const MEAL_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   breakfast: 'sunny-outline',
@@ -132,9 +133,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.greeting}>{greeting()}</Text>
             <Text style={styles.userName}>{user?.displayName?.split(' ')[0] ?? 'Chef'}</Text>
           </View>
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate('Settings')}>
-            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.85)" />
-          </TouchableOpacity>
+          <HeaderActions navigation={navigation} />
         </View>
 
         {/* Next meal */}
@@ -387,11 +386,6 @@ const styles = StyleSheet.create({
   },
   greeting: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)' },
   userName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg, color: '#fff', marginTop: 2 },
-  settingsBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
-  },
 
   nextMealCard: {
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,

@@ -10,6 +10,7 @@ import { getOrCreateWeekPlan, getWeekStart } from '../../services/plannerService
 import { WeekPlan } from '../../types';
 import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { HeaderActions } from '../../components/HeaderActions';
 
 const DAY_LABELS: Record<string, string> = {
   monday: 'Lundi', tuesday: 'Mardi', wednesday: 'Mercredi',
@@ -19,7 +20,7 @@ const MEAL_LABELS: Record<string, string> = {
   breakfast: 'Matin', lunch: 'Midi', dinner: 'Soir',
 };
 
-export const BudgetScreen: React.FC = () => {
+export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
   const { formatCurrency, currencySymbol } = usePreferences();
   const insets = useSafeAreaInsets();
@@ -81,14 +82,7 @@ export const BudgetScreen: React.FC = () => {
               <Text style={styles.title}>Budget</Text>
               <Text style={styles.subtitle}>Semaine du {getWeekStart()}</Text>
             </View>
-            <View style={styles.headerAmountWrap}>
-              <Text style={styles.headerAmount}>{formatCurrency(weeklyTotal)}</Text>
-              <Text style={styles.headerAmountSub}>/ {formatCurrency(limit)} max</Text>
-            </View>
-          </View>
-          {/* Progress bar in header */}
-          <View style={styles.headerProgress}>
-            <View style={[styles.headerProgressFill, { width: `${pct * 100}%`, backgroundColor: isOver ? Colors.errorContainer : 'rgba(255,255,255,0.9)' }]} />
+            <HeaderActions navigation={navigation} />
           </View>
         </View>
 
@@ -201,6 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)', top: -60, right: -30,
   },
   headerMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
+  headerRight: { alignItems: 'flex-end', gap: 8 },
   title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
   subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   headerAmountWrap: { alignItems: 'flex-end' },

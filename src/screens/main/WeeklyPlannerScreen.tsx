@@ -12,6 +12,7 @@ import { usePreferences } from '../../context/PreferencesContext';
 import { getOrCreateWeekPlan, updateMealSlot, getWeekStart } from '../../services/plannerService';
 import { getRecipes, calculateRecipeCost } from '../../services/recipeService';
 import { WeekPlan, Recipe, MealType, WellnessType } from '../../types';
+import { HeaderActions } from '../../components/HeaderActions';
 
 const DAY_KEYS: Array<keyof WeekPlan['days']> = [
   'monday','tuesday','wednesday','thursday','friday','saturday','sunday',
@@ -24,7 +25,7 @@ const WELLNESS_COLOR: Record<WellnessType, string> = {
   indulgent: Colors.error,
 };
 
-export const WeeklyPlannerScreen: React.FC = () => {
+export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
   const { t, formatCurrency } = usePreferences();
   const insets = useSafeAreaInsets();
@@ -141,11 +142,14 @@ export const WeeklyPlannerScreen: React.FC = () => {
             <Text style={styles.title}>{t('planner_title')}</Text>
             <Text style={styles.subtitle}>{t('planner_week_of')} {getWeekStart()}</Text>
           </View>
-          <View style={styles.weekSummaryPill}>
-            <Ionicons name="restaurant-outline" size={13} color="#fff" />
-            <Text style={styles.weekSummaryText}>
-              {plan ? Object.values(plan.days).reduce((s, d) => s + MEAL_KEYS.filter((k) => (d[k] as any).recipeId).length, 0) : 0} {t('planner_meals_planned')}
-            </Text>
+          <View style={styles.headerRight}>
+            <HeaderActions navigation={navigation} />
+            <View style={styles.weekSummaryPill}>
+              <Ionicons name="restaurant-outline" size={13} color="#fff" />
+              <Text style={styles.weekSummaryText}>
+                {plan ? Object.values(plan.days).reduce((s, d) => s + MEAL_KEYS.filter((k) => (d[k] as any).recipeId).length, 0) : 0} {t('planner_meals_planned')}
+              </Text>
+            </View>
           </View>
         </View>
       </View>
@@ -372,6 +376,7 @@ const styles = StyleSheet.create({
   headerMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
   subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  headerRight: { alignItems: 'flex-end', gap: 8 },
   weekSummaryPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: BorderRadius.full,

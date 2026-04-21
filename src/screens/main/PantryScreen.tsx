@@ -10,6 +10,7 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences } from '../../context/PreferencesContext';
+import { HeaderActions } from '../../components/HeaderActions';
 import {
   getPantryItems, addOrMergePantryItem,
   updatePantryQuantity, deletePantryItem, displayQty,
@@ -121,9 +122,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
               {items.filter((i) => i.quantity > 0).length} disponibles · {items.filter((i) => i.quantity <= 0).length} épuisés
             </Text>
           </View>
-          <TouchableOpacity style={styles.addHeaderBtn} onPress={openAdd}>
-            <Ionicons name="add" size={20} color={Colors.primary} />
-          </TouchableOpacity>
+          <HeaderActions navigation={navigation} />
         </View>
       </View>
 
@@ -304,7 +303,8 @@ const styles = StyleSheet.create({
   headerMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
   headerSub: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
-  addHeaderBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surfaceContainerLowest, alignItems: 'center', justifyContent: 'center' },
+  headerActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addHeaderBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,

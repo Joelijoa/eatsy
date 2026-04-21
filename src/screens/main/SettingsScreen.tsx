@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -7,14 +7,29 @@ import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typ
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences, Language, Currency } from '../../context/PreferencesContext';
 import { signOut } from 'firebase/auth';
-import { auth } from '../../services/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../services/firebase';
 
 type Props = { navigation: any };
 
 export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { t, language, currency, setLanguage, setCurrency } = usePreferences();
+  const { t, language, currency, darkMode, setLanguage, setCurrency, setDarkMode } = usePreferences();
+  const [helpExpanded, setHelpExpanded] = useState(false);
+
+  const savePrefsToFirestore = async (patch: object) => {
+    if (!user) return;
+    try { await setDoc(doc(db, 'users', user.uid), { preferences: patch }, { merge: true }); } catch {}
+  };
+
+  const HELP_ITEMS = [
+    { title: t('help_planner_title'), desc: t('help_planner_desc'), icon: 'calendar-outline' as const },
+    { title: t('help_recipes_title'), desc: t('help_recipes_desc'), icon: 'book-outline' as const },
+    { title: t('help_shopping_title'), desc: t('help_shopping_desc'), icon: 'cart-outline' as const },
+    { title: t('help_budget_title'), desc: t('help_budget_desc'), icon: 'wallet-outline' as const },
+    { title: t('help_pantry_title'), desc: t('help_pantry_desc'), icon: 'cube-outline' as const },
+  ];
 
   const handleLogout = () => {
     Alert.alert(t('settings_logout'), t('settings_logout_confirm'), [
@@ -70,7 +85,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
               <TouchableOpacity
                 key={opt.value}
                 style={[styles.optionBtn, language === opt.value && styles.optionBtnActive]}
-                onPress={() => setLanguage(opt.value)}
+                onPress={() => { setLanguage(opt.value); savePrefsToFirestore({ language: opt.value }); }}
               >
                 <Text style={styles.optionFlag}>{opt.flag}</Text>
                 <Text style={[styles.optionLabel, language === opt.value && styles.optionLabelActive]}>
@@ -96,7 +111,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity
               key={opt.value}
               style={[styles.currencyRow, idx < CURRENCY_OPTIONS.length - 1 && styles.currencyRowBorder]}
-              onPress={() => setCurrency(opt.value)}
+              onPress={() => { setCurrency(opt.value); savePrefsToFirestore({ currency: opt.value }); }}
             >
               <View style={styles.currencyLeft}>
                 <View style={[styles.currencySymbolWrap, currency === opt.value && styles.currencySymbolWrapActive]}>
@@ -113,6 +128,57 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           ))}
         </View>
 
+        {/* Appearance — Dark mode */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionCardHeader}>
+            <View style={styles.sectionCardIcon}>
+              <Ionicons name="moon-outline" size={18} color={Colors.primary} />
+            </View>
+            <Text style={styles.sectionCardTitle}>{t('settings_appearance')}</Text>
+          </View>
+          <View style={styles.darkModeRow}>
+            <View style={styles.darkModeLeft}>
+              <Ionicons name={darkMode ? 'moon' : 'sunny-outline'} size={20} color={darkMode ? Colors.secondary : Colors.tertiary} />
+              <View>
+                <Text style={styles.darkModeLabel}>{t('settings_darkmode')}</Text>
+                <Text style={styles.darkModeSub}>{t('settings_darkmode_sub')}</Text>
+              </View>
+            </View>
+            <Switch
+              value={darkMode}
+              onValueChange={(v) => { setDarkMode(v); savePrefsToFirestore({ darkMode: v }); }}
+              trackColor={{ false: Colors.surfaceContainerHigh, true: Colors.primary }}
+              thumbColor={darkMode ? Colors.onPrimary : Colors.surface}
+            />
+          </View>
+        </View>
+
+        {/* Help */}
+        <View style={styles.sectionCard}>
+          <TouchableOpacity style={styles.sectionCardHeader} onPress={() => setHelpExpanded(!helpExpanded)}>
+            <View style={styles.sectionCardIcon}>
+              <Ionicons name="help-circle-outline" size={18} color={Colors.primary} />
+            </View>
+            <Text style={[styles.sectionCardTitle, { flex: 1 }]}>{t('settings_help')}</Text>
+            <Ionicons name={helpExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.outlineVariant} />
+          </TouchableOpacity>
+          {helpExpanded && (
+            <View style={styles.helpList}>
+              {HELP_ITEMS.map((item, idx) => (
+                <View key={idx} style={[styles.helpItem, idx < HELP_ITEMS.length - 1 && styles.helpItemBorder]}>
+                  <View style={styles.helpIcon}>
+                    <Ionicons name={item.icon} size={16} color={Colors.primary} />
+                  </View>
+                  <View style={styles.helpText}>
+                    <Text style={styles.helpTitle}>{item.title}</Text>
+                    <Text style={styles.helpDesc}>{item.desc}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Account */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionCardHeader}>
@@ -127,8 +193,24 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Version */}
-        <Text style={styles.version}>Eatsy v1.0.0</Text>
+        {/* About / Copyright */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionCardHeader}>
+            <View style={styles.sectionCardIcon}>
+              <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
+            </View>
+            <Text style={styles.sectionCardTitle}>{t('settings_copyright')}</Text>
+          </View>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutLabel}>{t('settings_version')}</Text>
+            <Text style={styles.aboutValue}>1.0.0</Text>
+          </View>
+          <View style={styles.sep} />
+          <Text style={styles.copyrightText}>{t('settings_copyright_text')}</Text>
+          <Text style={styles.copyrightSub}>Fait avec ❤️ pour les cuisiniers malins.</Text>
+        </View>
+
+        <View style={{ height: 8 }} />
       </ScrollView>
     </View>
   );
@@ -210,8 +292,30 @@ const styles = StyleSheet.create({
   },
   logoutText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.error },
 
-  version: {
-    fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant,
-    textAlign: 'center', marginTop: Spacing.sm,
+  darkModeRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: Spacing.xs,
   },
+  darkModeLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  darkModeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  darkModeSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 1 },
+
+  helpList: { marginTop: Spacing.xs },
+  helpItem: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.sm },
+  helpItemBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surfaceContainerHigh },
+  helpIcon: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: `${Colors.primary}10`, alignItems: 'center', justifyContent: 'center',
+    marginTop: 2,
+  },
+  helpText: { flex: 1 },
+  helpTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  helpDesc: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 2, lineHeight: 18 },
+
+  aboutRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
+  aboutLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  aboutValue: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  sep: { height: 1, backgroundColor: Colors.surfaceContainerHigh, marginVertical: 4 },
+  copyrightText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface, paddingVertical: 4 },
+  copyrightSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 2 },
 });

@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ActivityIndicator, Animated } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { WelcomeScreen } from '../screens/WelcomeScreen';
 
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { Colors } from '../constants/colors';
@@ -26,6 +30,7 @@ import { CookingModeScreen } from '../screens/main/CookingModeScreen';
 import { FoodScannerScreen } from '../screens/main/FoodScannerScreen';
 import { SettingsScreen } from '../screens/main/SettingsScreen';
 import { PantryScreen } from '../screens/main/PantryScreen';
+import { ProfileScreen } from '../screens/main/ProfileScreen';
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -128,7 +133,38 @@ function MainTabs() {
 
 export const AppNavigator: React.FC = () => {
   const { user, loading } = useAuth();
-  const { t } = usePreferences();
+  const { t, applyRemotePrefs, darkMode } = usePreferences();
+  const [showWelcome, setShowWelcome] = useState(false);
+  const welcomeFade = useRef(new Animated.Value(1)).current;
+  const initialLoadDone = useRef(false);
+
+  useEffect(() => {
+    if (!user) return;
+    getDoc(doc(db, 'users', user.uid)).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as any;
+        if (data?.preferences) applyRemotePrefs(data.preferences);
+      }
+    }).catch(() => {});
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      return;
+    }
+    if (user) {
+      setShowWelcome(true);
+      const hide = setTimeout(() => {
+        Animated.timing(welcomeFade, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => {
+          setShowWelcome(false);
+          welcomeFade.setValue(1);
+        });
+      }, 2000);
+      return () => clearTimeout(hide);
+    }
+  }, [user, loading]);
 
   if (loading) {
     return (
@@ -141,24 +177,32 @@ export const AppNavigator: React.FC = () => {
   }
 
   return (
-    <SafeAreaProvider>
+    <>
+      <StatusBar style={darkMode ? 'light' : 'dark'} backgroundColor={darkMode ? '#121212' : Colors.surface} />
       <NavigationContainer>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
           {user ? (
             <>
               <RootStack.Screen name="MainTabs" component={MainTabs} />
               <RootStack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
+              <RootStack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
             </>
           ) : (
             <>
-              <RootStack.Screen name="Login"         component={LoginScreen} />
-              <RootStack.Screen name="Register"      component={RegisterScreen} />
+              <RootStack.Screen name="Login"          component={LoginScreen} />
+              <RootStack.Screen name="Register"       component={RegisterScreen} />
               <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             </>
           )}
         </RootStack.Navigator>
       </NavigationContainer>
-    </SafeAreaProvider>
+
+      {showWelcome && (
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: welcomeFade }]}>
+          <WelcomeScreen userName={user?.displayName ?? user?.email ?? undefined} />
+        </Animated.View>
+      )}
+    </>
   );
 };
 

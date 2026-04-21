@@ -343,6 +343,13 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                     <Text style={styles.stepNumText}>{idx + 1}</Text>
                   </View>
                   {idx < instructions.length - 1 && <View style={styles.stepConnector} />}
+                  <TouchableOpacity
+                    style={styles.stepRemoveBtn}
+                    onPress={() => removeInstruction(idx)}
+                    disabled={instructions.length === 1}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color={instructions.length === 1 ? Colors.outlineVariant : Colors.outline} />
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.stepRight}>
                   <EatsyInput
@@ -352,13 +359,6 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                     placeholder={`Décrivez l'étape ${idx + 1}...`}
                     multiline
                   />
-                  <TouchableOpacity
-                    style={styles.stepRemoveBtn}
-                    onPress={() => removeInstruction(idx)}
-                    disabled={instructions.length === 1}
-                  >
-                    <Ionicons name="close-circle-outline" size={18} color={instructions.length === 1 ? Colors.outlineVariant : Colors.outline} />
-                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -503,8 +503,8 @@ const styles = StyleSheet.create({
   },
   stepNumText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
   stepConnector: { width: 2, flex: 1, backgroundColor: Colors.surfaceContainerHigh, marginTop: 4 },
-  stepRight: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
-  stepRemoveBtn: { paddingTop: 10 },
+  stepRight: { flex: 1 },
+  stepRemoveBtn: { marginTop: 4 },
 
   saveSection: { paddingHorizontal: Spacing.lg, marginTop: Spacing.xs },
 });

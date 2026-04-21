@@ -117,6 +117,24 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     settings_app: 'Application',
     settings_preferences: 'Préférences',
     settings_logout_confirm: 'Se déconnecter de votre compte ?',
+    settings_darkmode: 'Mode sombre',
+    settings_darkmode_sub: 'Thème sombre pour les yeux',
+    settings_help: 'Aide & guide',
+    settings_help_title: 'Comment utiliser Eatsy',
+    settings_copyright: 'À propos',
+    settings_version: 'Version',
+    settings_copyright_text: '© 2025 Eatsy. Tous droits réservés.',
+    settings_appearance: 'Apparence',
+    help_planner_title: 'Planning hebdomadaire',
+    help_planner_desc: 'Planifiez vos repas (petit-déj., déjeuner, dîner) pour chaque jour de la semaine. Appuyez sur un créneau pour choisir une recette.',
+    help_recipes_title: 'Recettes',
+    help_recipes_desc: 'Créez et gérez vos recettes. Utilisez le scanner pour ajouter des ingrédients depuis un code-barres.',
+    help_shopping_title: 'Liste de courses',
+    help_shopping_desc: 'Ajoutez vos articles et cochez-les au fur et à mesure de vos achats. Le total estimé se calcule automatiquement.',
+    help_budget_title: 'Budget',
+    help_budget_desc: 'Suivez vos dépenses hebdomadaires. Le budget est calculé à partir du coût de vos repas planifiés.',
+    help_pantry_title: 'Garde-manger',
+    help_pantry_desc: 'Gérez votre stock d\'ingrédients à la maison. Mettez à jour les quantités après vos courses.',
     // Loading
     loading_1: 'Préparation de vos recettes…',
     loading_2: 'Calcul de votre budget hebdomadaire…',
@@ -237,6 +255,24 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     settings_app: 'App',
     settings_preferences: 'Preferences',
     settings_logout_confirm: 'Sign out of your account?',
+    settings_darkmode: 'Dark mode',
+    settings_darkmode_sub: 'Dark theme for your eyes',
+    settings_help: 'Help & guide',
+    settings_help_title: 'How to use Eatsy',
+    settings_copyright: 'About',
+    settings_version: 'Version',
+    settings_copyright_text: '© 2025 Eatsy. All rights reserved.',
+    settings_appearance: 'Appearance',
+    help_planner_title: 'Weekly Planner',
+    help_planner_desc: 'Plan your meals (breakfast, lunch, dinner) for each day of the week. Tap a slot to choose a recipe.',
+    help_recipes_title: 'Recipes',
+    help_recipes_desc: 'Create and manage your recipes. Use the scanner to add ingredients from a barcode.',
+    help_shopping_title: 'Shopping List',
+    help_shopping_desc: 'Add items and check them off as you shop. The estimated total is calculated automatically.',
+    help_budget_title: 'Budget',
+    help_budget_desc: 'Track your weekly spending. Budget is calculated from the cost of your planned meals.',
+    help_pantry_title: 'Pantry',
+    help_pantry_desc: 'Manage your home ingredient stock. Update quantities after shopping.',
     // Loading
     loading_1: 'Preparing your recipes…',
     loading_2: 'Calculating your weekly budget…',
@@ -250,8 +286,12 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
 interface PreferencesContextType {
   language: Language;
   currency: Currency;
-  setLanguage: (l: Language) => void;
-  setCurrency: (c: Currency) => void;
+  darkMode: boolean;
+  loaded: boolean;
+  setLanguage: (l: Language) => Promise<void>;
+  setCurrency: (c: Currency) => Promise<void>;
+  setDarkMode: (v: boolean) => Promise<void>;
+  applyRemotePrefs: (prefs: { currency?: string; language?: string; darkMode?: boolean }) => void;
   t: (key: string) => string;
   formatCurrency: (amount: number) => string;
   currencySymbol: string;
@@ -260,8 +300,12 @@ interface PreferencesContextType {
 const PreferencesContext = createContext<PreferencesContextType>({
   language: 'fr',
   currency: 'EUR',
-  setLanguage: () => {},
-  setCurrency: () => {},
+  darkMode: false,
+  loaded: false,
+  setLanguage: async () => {},
+  setCurrency: async () => {},
+  setDarkMode: async () => {},
+  applyRemotePrefs: () => {},
   t: (k) => k,
   formatCurrency: (a) => `${a.toFixed(2)} €`,
   currencySymbol: '€',
@@ -270,25 +314,48 @@ const PreferencesContext = createContext<PreferencesContextType>({
 export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>('fr');
   const [currency, setCurrencyState] = useState<Currency>('EUR');
+  const [darkMode, setDarkModeState] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      AsyncStorage.getItem('eatsy_lang'),
-      AsyncStorage.getItem('eatsy_currency'),
-    ]).then(([lang, curr]) => {
-      if (lang) setLanguageState(lang as Language);
-      if (curr) setCurrencyState(curr as Currency);
-    });
+    const load = async () => {
+      try {
+        const [lang, curr, dark] = await Promise.all([
+          AsyncStorage.getItem('eatsy_lang'),
+          AsyncStorage.getItem('eatsy_currency'),
+          AsyncStorage.getItem('eatsy_darkmode'),
+        ]);
+        if (lang === 'fr' || lang === 'en') setLanguageState(lang);
+        if (curr === 'EUR' || curr === 'MAD') setCurrencyState(curr);
+        if (dark === 'true') setDarkModeState(true);
+      } catch (e) {
+        // AsyncStorage unavailable, use defaults
+      } finally {
+        setLoaded(true);
+      }
+    };
+    load();
   }, []);
 
-  const setLanguage = (l: Language) => {
+  const setLanguage = async (l: Language) => {
     setLanguageState(l);
-    AsyncStorage.setItem('eatsy_lang', l);
+    try { await AsyncStorage.setItem('eatsy_lang', l); } catch {}
   };
 
-  const setCurrency = (c: Currency) => {
+  const setCurrency = async (c: Currency) => {
     setCurrencyState(c);
-    AsyncStorage.setItem('eatsy_currency', c);
+    try { await AsyncStorage.setItem('eatsy_currency', c); } catch {}
+  };
+
+  const setDarkMode = async (v: boolean) => {
+    setDarkModeState(v);
+    try { await AsyncStorage.setItem('eatsy_darkmode', v ? 'true' : 'false'); } catch {}
+  };
+
+  const applyRemotePrefs = (prefs: { currency?: string; language?: string; darkMode?: boolean }) => {
+    if (prefs.currency === 'EUR' || prefs.currency === 'MAD') setCurrencyState(prefs.currency);
+    if (prefs.language === 'fr' || prefs.language === 'en') setLanguageState(prefs.language);
+    if (typeof prefs.darkMode === 'boolean') setDarkModeState(prefs.darkMode);
   };
 
   const t = (key: string): string => TRANSLATIONS[language][key] ?? TRANSLATIONS['fr'][key] ?? key;
@@ -301,7 +368,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const currencySymbol = currency === 'EUR' ? '€' : 'MAD';
 
   return (
-    <PreferencesContext.Provider value={{ language, currency, setLanguage, setCurrency, t, formatCurrency, currencySymbol }}>
+    <PreferencesContext.Provider value={{ language, currency, darkMode, loaded, setLanguage, setCurrency, setDarkMode, applyRemotePrefs, t, formatCurrency, currencySymbol }}>
       {children}
     </PreferencesContext.Provider>
   );

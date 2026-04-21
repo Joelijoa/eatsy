@@ -128,58 +128,62 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         bounces={true}
         style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
       >
-        {/* Hero */}
+        {/* Hero photo */}
         <View style={styles.hero}>
           {recipe.imageUrl ? (
-            <Image source={{ uri: recipe.imageUrl }} style={styles.heroImage} />
+            <Image source={{ uri: recipe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
           ) : (
             <View style={styles.heroPlaceholder}>
+              <View style={styles.heroPlaceholderDecor1} />
+              <View style={styles.heroPlaceholderDecor2} />
               <View style={styles.heroPlaceholderIcon}>
-                <Ionicons name="restaurant" size={56} color={Colors.primaryContainer} />
+                <Ionicons name="restaurant" size={64} color="rgba(255,255,255,0.9)" />
               </View>
             </View>
           )}
-          {/* Gradient overlay */}
-          <View style={styles.heroOverlay} />
 
           {/* Top bar */}
           <View style={[styles.heroTopBar, { paddingTop: insets.top + 8 }]}>
             <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={20} color="#fff" />
+              <Ionicons name="arrow-back" size={20} color={Colors.onSurface} />
             </TouchableOpacity>
             <View style={styles.heroTopRight}>
               <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('AddRecipe', { recipeId: recipe.id })}>
-                <Ionicons name="pencil" size={18} color="#fff" />
+                <Ionicons name="pencil" size={18} color={Colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity style={[styles.iconBtn, styles.iconBtnDanger]} onPress={handleDelete}>
                 <Ionicons name="trash-outline" size={18} color={Colors.error} />
               </TouchableOpacity>
             </View>
           </View>
+        </View>
 
-          {/* Hero content */}
-          <View style={styles.heroContent}>
+        {/* Title card — overlaps hero bottom */}
+        <View style={styles.titleCard}>
+          <View style={styles.titleCardTop}>
             <View style={[styles.wellnessBadge, { backgroundColor: wConfig.bg }]}>
               <Ionicons name={wConfig.icon} size={12} color={wConfig.color} />
               <Text style={[styles.wellnessBadgeText, { color: wConfig.color }]}>{wConfig.label}</Text>
             </View>
             <Text style={styles.heroTitle}>{recipe.name}</Text>
             {recipe.description ? (
-              <Text style={styles.heroDesc} numberOfLines={2}>{recipe.description}</Text>
+              <Text style={styles.heroDesc}>{recipe.description}</Text>
             ) : null}
           </View>
         </View>
 
-        {/* Quick stats */}
-        <View style={styles.statsRow}>
+        {/* Stats card */}
+        <View style={styles.statsCard}>
           {[
-            { icon: 'time-outline' as const,   label: 'Préparation', value: `${recipe.prepTime} min` },
-            { icon: 'flame-outline' as const,  label: 'Cuisson',     value: `${recipe.cookTime} min` },
-            { icon: 'people-outline' as const, label: 'Personnes',   value: `${recipe.servings}` },
-            { icon: 'wallet-outline' as const, label: 'Par pers.',   value: formatCurrency(costPerServing) },
+            { icon: 'time-outline' as const,   label: 'Prép.',     value: `${recipe.prepTime} min`, color: Colors.primary },
+            { icon: 'flame-outline' as const,  label: 'Cuisson',   value: `${recipe.cookTime} min`, color: Colors.tertiary },
+            { icon: 'people-outline' as const, label: 'Portions',  value: `${recipe.servings}`,      color: Colors.secondary },
+            { icon: 'wallet-outline' as const, label: 'Par pers.', value: formatCurrency(costPerServing), color: Colors.primary },
           ].map((s, i) => (
-            <View key={i} style={styles.statCard}>
-              <Ionicons name={s.icon} size={18} color={Colors.primary} />
+            <View key={i} style={[styles.statCard, i < 3 && styles.statCardBorder]}>
+              <View style={[styles.statIcon, { backgroundColor: `${s.color}18` }]}>
+                <Ionicons name={s.icon} size={16} color={s.color} />
+              </View>
               <Text style={styles.statValue}>{s.value}</Text>
               <Text style={styles.statLabel}>{s.label}</Text>
             </View>
@@ -344,19 +348,25 @@ const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   loadingText: { fontFamily: FontFamily.body, color: Colors.onSurfaceVariant },
 
-  hero: { height: 300, position: 'relative' },
+  hero: {
+    height: 300, position: 'relative', overflow: 'hidden',
+  },
   heroImage: { width: '100%', height: '100%' },
   heroPlaceholder: {
     width: '100%', height: '100%',
     backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
   },
-  heroPlaceholderIcon: {
-    width: 100, height: 100, borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
+  heroPlaceholderDecor1: {
+    position: 'absolute', width: 280, height: 280, borderRadius: 140,
+    backgroundColor: 'rgba(255,255,255,0.06)', top: -80, right: -60,
   },
-  heroOverlay: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%',
-    backgroundColor: 'rgba(0,0,0,0.45)',
+  heroPlaceholderDecor2: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.06)', bottom: -40, left: -40,
+  },
+  heroPlaceholderIcon: {
+    width: 110, height: 110, borderRadius: 55,
+    backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
   },
   heroTopBar: {
     position: 'absolute', top: 0, left: 0, right: 0,
@@ -365,29 +375,38 @@ const styles = StyleSheet.create({
   },
   heroTopRight: { flexDirection: 'row', gap: Spacing.xs },
   iconBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
   },
-  iconBtnDanger: { backgroundColor: 'rgba(255,255,255,0.15)' },
-  heroContent: {
-    position: 'absolute', bottom: Spacing.lg, left: Spacing.lg, right: Spacing.lg,
+  iconBtnDanger: { backgroundColor: 'rgba(255,255,255,0.92)' },
+
+  titleCard: {
+    marginHorizontal: Spacing.lg, marginTop: -28,
+    backgroundColor: Colors.surfaceContainerLowest,
+    borderRadius: BorderRadius.xxl, padding: Spacing.lg,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5,
   },
+  titleCardTop: { gap: Spacing.xs },
   wellnessBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: Spacing.sm, paddingVertical: 4,
-    borderRadius: BorderRadius.full, alignSelf: 'flex-start', marginBottom: Spacing.xs,
+    paddingHorizontal: Spacing.sm, paddingVertical: 5,
+    borderRadius: BorderRadius.full, alignSelf: 'flex-start',
   },
   wellnessBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm },
-  heroTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg, color: '#fff', marginBottom: 4 },
-  heroDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.8)' },
+  heroTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg, color: Colors.onSurface, lineHeight: 30 },
+  heroDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, lineHeight: 20 },
 
-  statsRow: {
-    flexDirection: 'row', marginHorizontal: Spacing.lg, marginTop: Spacing.md,
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
+  statsCard: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.lg, marginTop: Spacing.sm,
+    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
-  statCard: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md, gap: 3 },
-  statValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.onSurface },
+  statCard: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md, gap: 6 },
+  statCardBorder: { borderRightWidth: 1, borderRightColor: Colors.surfaceContainerHigh },
+  statIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  statValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleSm, color: Colors.onSurface },
   statLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, textAlign: 'center' },
 
   costBanner: {
