@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+  const Colors = useColors();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,6 +55,8 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       setLoading(false);
     }
   };
+
+  const styles = createStyles(Colors);
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -88,26 +92,26 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  flex: { flex: 1, backgroundColor: C.surface },
   content: { flexGrow: 1, padding: Spacing.lg, paddingTop: Spacing.xl },
   blobTopRight: {
     position: 'absolute', top: -30, right: -50,
     width: 180, height: 180, borderRadius: 90,
-    backgroundColor: `${Colors.secondaryContainer}40`,
+    backgroundColor: `${C.secondaryContainer}40`,
   },
   backBtn: { marginBottom: Spacing.lg },
-  backText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
+  backText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
   header: { marginBottom: Spacing.xl },
-  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displayMd, color: Colors.onSurface, letterSpacing: -0.5 },
-  subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, marginTop: 4 },
+  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displayMd, color: C.onSurface, letterSpacing: -0.5 },
+  subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, marginTop: 4 },
   card: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
-    padding: Spacing.xl, shadowColor: Colors.onSurface, shadowOffset: { width: 0, height: 8 },
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    padding: Spacing.xl, shadowColor: C.onSurface, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06, shadowRadius: 24, elevation: 3,
   },
   btn: { marginTop: Spacing.md },
   loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg },
-  loginText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  loginLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary, textDecorationLine: 'underline' },
+  loginText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  loginLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary, textDecorationLine: 'underline' },
 });

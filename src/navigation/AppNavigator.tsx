@@ -11,7 +11,7 @@ import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
-import { usePreferences } from '../context/PreferencesContext';
+import { usePreferences, useColors } from '../context/PreferencesContext';
 import { Colors } from '../constants/colors';
 import { FontFamily, FontSize } from '../constants/typography';
 
@@ -53,6 +53,7 @@ function RecipeStackNavigator() {
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const { t } = usePreferences();
+  const Colors = useColors();
 
   const TAB_CONFIG: Array<{
     name: string;
@@ -72,7 +73,7 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: [styles.tabBar, { height: 58 + insets.bottom, paddingBottom: insets.bottom + 4 }],
+        tabBarStyle: [styles.tabBar, { height: 58 + insets.bottom, paddingBottom: insets.bottom + 4, backgroundColor: Colors.surfaceContainerLowest }],
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.outline,
         tabBarShowLabel: true,

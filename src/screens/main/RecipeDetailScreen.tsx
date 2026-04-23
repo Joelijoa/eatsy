@@ -12,7 +12,7 @@ import { getRecipe, deleteRecipe, calculateRecipeCost } from '../../services/rec
 import { checkRecipeStock, deductRecipeFromPantry, displayQty, IngredientStockInfo } from '../../services/pantryService';
 import { addShoppingItem } from '../../services/shoppingListService';
 import { Recipe, WellnessType } from '../../types';
-import { usePreferences } from '../../context/PreferencesContext';
+import { usePreferences , useColors } from '../../context/PreferencesContext';
 import { useAuth } from '../../context/AuthContext';
 
 const WELLNESS_CONFIG: Record<WellnessType, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
@@ -26,6 +26,8 @@ type Props = { navigation: any; route: any };
 export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { recipeId } = route.params;
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
+  const styles = createStyles(Colors);
   const { formatCurrency } = usePreferences();
   const { user } = useAuth();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
@@ -343,10 +345,10 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
-  loadingText: { fontFamily: FontFamily.body, color: Colors.onSurfaceVariant },
+  loadingText: { fontFamily: FontFamily.body, color: C.onSurfaceVariant },
 
   hero: {
     height: 300, position: 'relative', overflow: 'hidden',
@@ -354,7 +356,7 @@ const styles = StyleSheet.create({
   heroImage: { width: '100%', height: '100%' },
   heroPlaceholder: {
     width: '100%', height: '100%',
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
   },
   heroPlaceholderDecor1: {
     position: 'absolute', width: 280, height: 280, borderRadius: 140,
@@ -383,7 +385,7 @@ const styles = StyleSheet.create({
 
   titleCard: {
     marginHorizontal: Spacing.lg, marginTop: -28,
-    backgroundColor: Colors.surfaceContainerLowest,
+    backgroundColor: C.surfaceContainerLowest,
     borderRadius: BorderRadius.xxl, padding: Spacing.lg,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5,
   },
@@ -394,99 +396,99 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full, alignSelf: 'flex-start',
   },
   wellnessBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm },
-  heroTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg, color: Colors.onSurface, lineHeight: 30 },
-  heroDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, lineHeight: 20 },
+  heroTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg, color: C.onSurface, lineHeight: 30 },
+  heroDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, lineHeight: 20 },
 
   statsCard: {
     flexDirection: 'row',
     marginHorizontal: Spacing.lg, marginTop: Spacing.sm,
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl, overflow: 'hidden',
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
   statCard: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md, gap: 6 },
-  statCardBorder: { borderRightWidth: 1, borderRightColor: Colors.surfaceContainerHigh },
+  statCardBorder: { borderRightWidth: 1, borderRightColor: C.surfaceContainerHigh },
   statIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  statValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleSm, color: Colors.onSurface },
-  statLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, textAlign: 'center' },
+  statValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleSm, color: C.onSurface },
+  statLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, textAlign: 'center' },
 
   costBanner: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginHorizontal: Spacing.lg, marginTop: Spacing.sm,
-    backgroundColor: `${Colors.primary}10`, borderRadius: BorderRadius.xl,
+    backgroundColor: `${C.primary}10`, borderRadius: BorderRadius.xl,
     padding: Spacing.md,
   },
   costLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  costLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  costSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 1 },
-  costAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.primary },
+  costLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  costSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 1 },
+  costAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.primary },
 
   tabsRow: {
     flexDirection: 'row', margin: Spacing.lg,
-    backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.full, padding: 4, gap: 4,
+    backgroundColor: C.surfaceContainerHigh, borderRadius: BorderRadius.full, padding: 4, gap: 4,
   },
   tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: BorderRadius.full },
-  tabBtnActive: { backgroundColor: Colors.primary },
-  tabBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
-  tabBtnTextActive: { color: Colors.onPrimary },
+  tabBtnActive: { backgroundColor: C.primary },
+  tabBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  tabBtnTextActive: { color: C.onPrimary },
 
   tabContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
 
   ingredientRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.surfaceContainerHigh,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh,
   },
   ingNumber: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
-  ingNumberText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant },
+  ingNumberText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.onSurfaceVariant },
   ingInfo: { flex: 1 },
-  ingName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  ingName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
   ingQtyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 1 },
-  ingQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
+  ingQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
   ingStockBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   ingStockText: { fontFamily: FontFamily.body, fontSize: 10 },
-  ingPrice: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
+  ingPrice: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
   stockBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: `${Colors.primary}08`, borderRadius: BorderRadius.xl,
+    backgroundColor: `${C.primary}08`, borderRadius: BorderRadius.xl,
     padding: Spacing.sm, marginVertical: Spacing.sm,
   },
   stockBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flex: 1 },
-  stockBannerTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurface },
-  stockBannerSub: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, marginTop: 1 },
+  stockBannerTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurface },
+  stockBannerSub: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, marginTop: 1 },
   stockBannerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  cartAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.tertiary}15`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
-  cartAllBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.tertiary },
-  deductBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.primary}15`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
-  deductBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.primary },
+  cartAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${C.tertiary}15`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
+  cartAllBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.tertiary },
+  deductBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${C.primary}15`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
+  deductBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.primary },
   cartBtn: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: `${Colors.primary}15`, alignItems: 'center', justifyContent: 'center', marginLeft: 4,
+    backgroundColor: `${C.primary}15`, alignItems: 'center', justifyContent: 'center', marginLeft: 4,
   },
-  cartBtnDone: { backgroundColor: Colors.primary },
+  cartBtnDone: { backgroundColor: C.primary },
   ingredientTotal: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: Spacing.sm, paddingTop: Spacing.sm,
-    borderTopWidth: 1.5, borderTopColor: Colors.outlineVariant,
+    borderTopWidth: 1.5, borderTopColor: C.outlineVariant,
   },
-  ingredientTotalLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  ingredientTotalValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineSm, color: Colors.primary },
+  ingredientTotalLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  ingredientTotalValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineSm, color: C.primary },
 
   stepRow: { flexDirection: 'row', marginBottom: 0 },
   stepLeft: { alignItems: 'center', width: 40, paddingTop: 4 },
   stepNumber: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary,
+    width: 28, height: 28, borderRadius: 14, backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
-  stepNumberText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
-  stepLine: { width: 2, flex: 1, backgroundColor: Colors.surfaceContainerHigh, marginTop: 4, marginBottom: 0 },
+  stepNumberText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onPrimary },
+  stepLine: { width: 2, flex: 1, backgroundColor: C.surfaceContainerHigh, marginTop: 4, marginBottom: 0 },
   stepCard: {
-    flex: 1, backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl,
+    flex: 1, backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl,
     padding: Spacing.md, marginLeft: Spacing.sm, marginBottom: Spacing.sm,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
   },
-  stepText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurface, lineHeight: 22 },
+  stepText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurface, lineHeight: 22 },
 
   ctaSection: { paddingHorizontal: Spacing.lg, marginTop: Spacing.md },
 });

@@ -13,7 +13,7 @@ import { EatsyButton } from '../../components/EatsyButton';
 import { useAuth } from '../../context/AuthContext';
 import { addRecipe, updateRecipe, getRecipe, getCategories } from '../../services/recipeService';
 import { Recipe, Ingredient, Category, WellnessType } from '../../types';
-import { usePreferences } from '../../context/PreferencesContext';
+import { usePreferences , useColors } from '../../context/PreferencesContext';
 
 const WELLNESS_OPTIONS: Array<{
   value: WellnessType;
@@ -38,6 +38,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAuth();
   const { formatCurrency, currencySymbol } = usePreferences();
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
   const recipeId = route.params?.recipeId;
   const isEdit = !!recipeId;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -143,6 +144,8 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
       setLoading(false);
     }
   };
+
+  const styles = createStyles(Colors);
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -386,11 +389,11 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (C: typeof Colors) => StyleSheet.create({
   flex: { flex: 1 },
-  screen: { flex: 1, backgroundColor: Colors.surface },
+  screen: { flex: 1, backgroundColor: C.surface },
   headerBand: {
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
+    backgroundColor: C.primary, paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md + 16, overflow: 'hidden',
     borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
@@ -421,32 +424,32 @@ const styles = StyleSheet.create({
   },
   imageEditText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: '#fff' },
   imagePlaceholder: {
-    flex: 1, backgroundColor: Colors.surfaceContainerLow,
+    flex: 1, backgroundColor: C.surfaceContainerLow,
     alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: Colors.outlineVariant, borderStyle: 'dashed',
+    borderWidth: 1.5, borderColor: C.outlineVariant, borderStyle: 'dashed',
     borderRadius: BorderRadius.xxl,
   },
   imagePlaceholderIcon: {
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center',
   },
-  imagePlaceholderText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  imagePlaceholderSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
+  imagePlaceholderText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  imagePlaceholderSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
 
   card: {
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
     padding: Spacing.lg,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.md },
   cardHeaderIcon: {
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center',
   },
-  cardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.onSurface, flex: 1 },
+  cardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.onSurface, flex: 1 },
   cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  totalCostText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.primary },
+  totalCostText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.primary },
 
   row: { flexDirection: 'row', gap: Spacing.sm },
   half: { flex: 1 },
@@ -460,49 +463,49 @@ const styles = StyleSheet.create({
   wellnessIconWrap: {
     width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
   },
-  wellnessLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant, textAlign: 'center' },
+  wellnessLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, textAlign: 'center' },
 
   categoryRow: { flexDirection: 'row', gap: Spacing.xs, paddingBottom: 4 },
   catChip: {
     paddingHorizontal: Spacing.md, paddingVertical: 7,
-    backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.full,
+    backgroundColor: C.surfaceContainerHigh, borderRadius: BorderRadius.full,
   },
-  catChipActive: { backgroundColor: Colors.primary },
-  catChipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
-  catChipTextActive: { color: Colors.onPrimary },
+  catChipActive: { backgroundColor: C.primary },
+  catChipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  catChipTextActive: { color: C.onPrimary },
 
   ingredientBlock: {
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
     padding: Spacing.md, marginBottom: Spacing.sm,
   },
   ingredientBlockHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: 6 },
   ingIndex: {
-    width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.primary,
+    width: 22, height: 22, borderRadius: 11, backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  ingIndexText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: Colors.onPrimary },
-  ingLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurface, flex: 1 },
+  ingIndexText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onPrimary },
+  ingLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurface, flex: 1 },
   removeIconBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
 
   addRowBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: Spacing.md, borderRadius: BorderRadius.xl,
-    borderWidth: 1.5, borderColor: Colors.outlineVariant, borderStyle: 'dashed',
+    borderWidth: 1.5, borderColor: C.outlineVariant, borderStyle: 'dashed',
     marginTop: Spacing.xs,
   },
-  addRowBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
+  addRowBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
 
   stepRow: { flexDirection: 'row', marginBottom: 4 },
   stepLeft: { alignItems: 'center', width: 36, paddingTop: 10 },
   stepNum: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary,
+    width: 28, height: 28, borderRadius: 14, backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
-  stepNumText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
-  stepConnector: { width: 2, flex: 1, backgroundColor: Colors.surfaceContainerHigh, marginTop: 4 },
+  stepNumText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onPrimary },
+  stepConnector: { width: 2, flex: 1, backgroundColor: C.surfaceContainerHigh, marginTop: 4 },
   stepRight: { flex: 1 },
   stepRemoveBtn: { marginTop: 4 },
 

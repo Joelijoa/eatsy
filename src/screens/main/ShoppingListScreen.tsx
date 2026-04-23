@@ -1,21 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
-  Modal, TextInput, RefreshControl, Alert,
+  Modal, TextInput, RefreshControl, Alert, Animated,
 } from 'react-native';
+import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences } from '../../context/PreferencesContext';
+import { usePreferences , useColors } from '../../context/PreferencesContext';
 import {
   getShoppingItems, addShoppingItem, toggleShoppingItem,
-  deleteShoppingItem, clearCheckedItems,
+  deleteShoppingItem, clearCheckedItems, generateShoppingItemsFromPlan,
 } from '../../services/shoppingListService';
 import { addOrMergePantryItem } from '../../services/pantryService';
-import { ShoppingItem } from '../../types';
+import { getOrCreateWeekPlan, getWeekStart } from '../../services/plannerService';
+import { ShoppingItem, WeekPlan } from '../../types';
 import { HeaderActions } from '../../components/HeaderActions';
 
 const UNITS = ['pcs', 'kg', 'g', 'L', 'cl', 'ml', 'sachet', 'boîte', 'bouteille'];
@@ -24,10 +26,15 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
   const { user } = useAuth();
   const { t, formatCurrency } = usePreferences();
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
 
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [generateModal, setGenerateModal] = useState(false);
+  const [generateMerge, setGenerateMerge] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
 
   // form state
   const [formName, setFormName] = useState('');
@@ -38,8 +45,12 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
 
   const loadItems = useCallback(async () => {
     if (!user) return;
-    const data = await getShoppingItems(user.uid);
+    const [data, wp] = await Promise.all([
+      getShoppingItems(user.uid),
+      getOrCreateWeekPlan(user.uid, getWeekStart()),
+    ]);
     setItems(data);
+    setWeekPlan(wp);
   }, [user]);
 
   useFocusEffect(useCallback(() => { loadItems(); }, [loadItems]));
@@ -101,6 +112,31 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
     ]);
   };
 
+  const openGenerateModal = () => {
+    setGenerateMerge(true);
+    setGenerateModal(true);
+  };
+
+  const handleGenerate = async () => {
+    if (!user || !weekPlan) return;
+    setGenerating(true);
+    try {
+      const result = await generateShoppingItemsFromPlan(user.uid, weekPlan, generateMerge);
+      setGenerateModal(false);
+      await loadItems();
+      if (result.noMeals) {
+        Alert.alert('', t('shopping_generate_no_plan'));
+      } else {
+        Alert.alert(
+          t('shopping_generate_title'),
+          `${result.added} ${t('shopping_generate_done')}${result.inStock > 0 ? ` · ${result.inStock} ${t('shopping_generate_in_stock')}` : ''}`,
+        );
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handleClearChecked = () => {
     if (!user) return;
     Alert.alert(t('shopping_clear_checked'), `${checked.length} article(s) ?`, [
@@ -150,8 +186,11 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
     </View>
   );
 
+  const styles = createStyles(Colors);
+  const { opacity, translateY } = useScreenEntrance();
+
   return (
-    <View style={styles.screen}>
+    <Animated.View style={[styles.screen, { opacity, transform: [{ translateY }] }]}>
       {/* Header */}
       <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerDecor} />
@@ -163,6 +202,9 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
             </Text>
           </View>
           <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.generateBtn} onPress={openGenerateModal}>
+              <Ionicons name="sparkles-outline" size={17} color="rgba(255,255,255,0.9)" />
+            </TouchableOpacity>
             {checked.length > 0 && (
               <TouchableOpacity style={styles.clearBtn} onPress={handleClearChecked}>
                 <Ionicons name="checkmark-done-outline" size={16} color="rgba(255,255,255,0.85)" />
@@ -185,9 +227,13 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
           </View>
           <Text style={styles.emptyTitle}>{t('shopping_empty_title')}</Text>
           <Text style={styles.emptyDesc}>{t('shopping_empty_desc')}</Text>
-          <TouchableOpacity style={styles.emptyAddBtn} onPress={openModal}>
-            <Ionicons name="add" size={18} color={Colors.onPrimary} />
-            <Text style={styles.emptyAddBtnText}>{t('shopping_add_item')}</Text>
+          <TouchableOpacity style={styles.emptyAddBtn} onPress={openGenerateModal}>
+            <Ionicons name="sparkles-outline" size={18} color={Colors.onPrimary} />
+            <Text style={styles.emptyAddBtnText}>{t('shopping_generate')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.emptyAddBtnSecondary} onPress={openModal}>
+            <Ionicons name="add" size={18} color={Colors.primary} />
+            <Text style={styles.emptyAddBtnSecondaryText}>{t('shopping_add_item')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -261,6 +307,57 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
         </TouchableOpacity>
       )}
 
+      {/* Generate modal */}
+      <Modal visible={generateModal} animationType="slide" transparent onRequestClose={() => setGenerateModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.generateIconWrap}>
+              <Ionicons name="sparkles" size={28} color={Colors.primary} />
+            </View>
+            <Text style={styles.modalTitle}>{t('shopping_generate_title')}</Text>
+            <Text style={styles.generateDesc}>{t('shopping_generate_desc')}</Text>
+
+            <View style={styles.generateToggle}>
+              <TouchableOpacity
+                style={[styles.toggleOption, generateMerge && styles.toggleOptionActive]}
+                onPress={() => setGenerateMerge(true)}
+              >
+                <Ionicons name="git-merge-outline" size={16} color={generateMerge ? Colors.onPrimary : Colors.onSurfaceVariant} />
+                <Text style={[styles.toggleOptionText, generateMerge && styles.toggleOptionTextActive]}>
+                  {t('shopping_generate_merge')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleOption, !generateMerge && styles.toggleOptionActive]}
+                onPress={() => setGenerateMerge(false)}
+              >
+                <Ionicons name="refresh-outline" size={16} color={!generateMerge ? Colors.onPrimary : Colors.onSurfaceVariant} />
+                <Text style={[styles.toggleOptionText, !generateMerge && styles.toggleOptionTextActive]}>
+                  {t('shopping_generate_replace')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setGenerateModal(false)}>
+                <Text style={styles.modalCancelText}>{t('common_cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSaveBtn, generating && styles.modalSaveBtnDisabled]}
+                onPress={handleGenerate}
+                disabled={generating}
+              >
+                <Ionicons name="sparkles-outline" size={18} color={Colors.onPrimary} />
+                <Text style={styles.modalSaveText}>
+                  {generating ? t('common_loading') : t('shopping_generate_btn')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Add item modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -330,7 +427,7 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
           </View>
         </View>
       </Modal>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -359,10 +456,10 @@ const unitStyles = StyleSheet.create({
   chipTextActive: { color: Colors.onPrimary },
 });
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
   headerBand: {
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
+    backgroundColor: C.primary, paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg + 16, overflow: 'hidden',
     borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
@@ -374,13 +471,17 @@ const styles = StyleSheet.create({
   title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
   headerSub: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  generateBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
+  },
   clearBtn: {
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
   },
   addBtn: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: Colors.surfaceContainerLowest, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceContainerLowest, alignItems: 'center', justifyContent: 'center',
   },
   headerProgress: { height: 5, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 3, overflow: 'hidden' },
   headerProgressFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 3 },
@@ -388,36 +489,41 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.sm },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xs,
+    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xs,
   },
-  emptyTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.onSurface },
-  emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, textAlign: 'center', lineHeight: 22 },
+  emptyTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onSurface },
+  emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, textAlign: 'center', lineHeight: 22 },
   emptyAddBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm,
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.xl, paddingVertical: 13, borderRadius: BorderRadius.full,
+    backgroundColor: C.primary, paddingHorizontal: Spacing.xl, paddingVertical: 13, borderRadius: BorderRadius.full,
   },
-  emptyAddBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  emptyAddBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
+  emptyAddBtnSecondary: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.xs,
+    backgroundColor: `${C.primary}14`, paddingHorizontal: Spacing.xl, paddingVertical: 13, borderRadius: BorderRadius.full,
+  },
+  emptyAddBtnSecondaryText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
 
   summaryRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
   summaryCard: {
     flex: 1, alignItems: 'center', gap: 3,
     borderRadius: BorderRadius.xl, padding: Spacing.md,
   },
-  summaryValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface },
-  summaryLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, textAlign: 'center' },
+  summaryValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
+  summaryLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, textAlign: 'center' },
 
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  progressTrack: { flex: 1, height: 5, backgroundColor: Colors.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 3 },
-  progressPct: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant, width: 34, textAlign: 'right' },
+  progressTrack: { flex: 1, height: 5, backgroundColor: C.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 3 },
+  progressPct: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, width: 34, textAlign: 'right' },
 
   section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs },
-  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.onSurface, marginBottom: Spacing.xs },
-  clearText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.error },
+  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: C.onSurface, marginBottom: Spacing.xs },
+  clearText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.error },
 
   itemsCard: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   itemsCardChecked: { opacity: 0.85 },
@@ -426,63 +532,84 @@ const styles = StyleSheet.create({
   checkboxArea: { marginRight: Spacing.sm },
   checkbox: {
     width: 22, height: 22, borderRadius: 11,
-    borderWidth: 1.5, borderColor: Colors.outlineVariant,
+    borderWidth: 1.5, borderColor: C.outlineVariant,
     alignItems: 'center', justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  checkboxChecked: { backgroundColor: C.primary, borderColor: C.primary },
   itemContent: { flex: 1 },
-  itemName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  itemNameChecked: { textDecorationLine: 'line-through', color: Colors.onSurfaceVariant },
-  itemQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant, marginTop: 1 },
-  itemPrice: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary, marginRight: 6 },
-  itemPriceFaded: { color: Colors.onSurfaceVariant },
+  itemName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  itemNameChecked: { textDecorationLine: 'line-through', color: C.onSurfaceVariant },
+  itemQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, marginTop: 1 },
+  itemPrice: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary, marginRight: 6 },
+  itemPriceFaded: { color: C.onSurfaceVariant },
   deleteBtn: { padding: 4 },
-  itemSep: { height: 1, backgroundColor: Colors.surfaceContainerHigh, marginLeft: Spacing.md + 22 + Spacing.sm },
+  itemSep: { height: 1, backgroundColor: C.surfaceContainerHigh, marginLeft: Spacing.md + 22 + Spacing.sm },
 
   subtotalRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-    backgroundColor: `${Colors.primary}08`, borderRadius: BorderRadius.xl,
+    backgroundColor: `${C.primary}08`, borderRadius: BorderRadius.xl,
   },
-  subtotalLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  subtotalAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.primary },
+  subtotalLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  subtotalAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.primary },
 
   fab: {
     position: 'absolute', right: Spacing.lg,
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
+
+  generateIconWrap: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: `${C.primary}15`, alignItems: 'center', justifyContent: 'center',
+    alignSelf: 'center', marginBottom: Spacing.md,
+  },
+  generateDesc: {
+    fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant,
+    textAlign: 'center', lineHeight: 22, marginBottom: Spacing.lg,
+  },
+  generateToggle: {
+    flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg,
+  },
+  toggleOption: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 11, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerHigh,
+  },
+  toggleOptionActive: { backgroundColor: C.primary },
+  toggleOptionText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  toggleOptionTextActive: { color: C.onPrimary },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: Colors.surfaceContainerLowest,
+    backgroundColor: C.surfaceContainerLowest,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm,
   },
   modalHandle: {
-    width: 36, height: 4, backgroundColor: Colors.outlineVariant,
+    width: 36, height: 4, backgroundColor: C.outlineVariant,
     borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg,
   },
-  modalTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.onSurface, marginBottom: Spacing.lg },
+  modalTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onSurface, marginBottom: Spacing.lg },
   inputGroup: { marginBottom: Spacing.md },
-  inputLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginBottom: 6 },
+  inputLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginBottom: 6 },
   textInput: {
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
     paddingHorizontal: Spacing.md, paddingVertical: 12,
-    fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurface,
+    fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurface,
   },
   inputRow: { flexDirection: 'row', gap: Spacing.sm },
   modalActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   modalCancelBtn: {
     flex: 1, paddingVertical: 13, borderRadius: BorderRadius.full,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center',
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center',
   },
-  modalCancelText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  modalCancelText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
   modalSaveBtn: {
     flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 13, borderRadius: BorderRadius.full, backgroundColor: Colors.primary,
+    paddingVertical: 13, borderRadius: BorderRadius.full, backgroundColor: C.primary,
   },
   modalSaveBtnDisabled: { opacity: 0.45 },
-  modalSaveText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  modalSaveText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
 });

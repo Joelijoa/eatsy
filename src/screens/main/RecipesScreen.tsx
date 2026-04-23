@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Image, Animated } from 'react-native';
+import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences } from '../../context/PreferencesContext';
+import { usePreferences , useColors } from '../../context/PreferencesContext';
 import { getRecipes, getCategories } from '../../services/recipeService';
 import { Recipe, Category, WellnessType } from '../../types';
 import { HeaderActions } from '../../components/HeaderActions';
@@ -28,6 +29,7 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { t, formatCurrency } = usePreferences();
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
@@ -128,8 +130,11 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
+  const styles = createStyles(Colors);
+  const { opacity, translateY } = useScreenEntrance();
+
   return (
-    <View style={styles.screen}>
+    <Animated.View style={[styles.screen, { opacity, transform: [{ translateY }] }]}>
       {/* Header */}
       <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerDecor} />
@@ -223,14 +228,14 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
           <Ionicons name="add" size={26} color={Colors.onPrimary} />
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
   headerBand: {
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
+    backgroundColor: C.primary, paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg + 16, overflow: 'hidden',
     borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
@@ -243,28 +248,28 @@ const styles = StyleSheet.create({
   headerSub: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
     marginHorizontal: Spacing.lg, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm,
   },
   searchInput: {
     flex: 1, paddingVertical: 11, fontFamily: FontFamily.body,
-    fontSize: FontSize.bodyMd, color: Colors.onSurface,
+    fontSize: FontSize.bodyMd, color: C.onSurface,
   },
   filterRow: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm, gap: Spacing.xs },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: Spacing.md, height: 34,
-    backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.full,
+    backgroundColor: C.surfaceContainerHigh, borderRadius: BorderRadius.full,
   },
   wellnessDot: { width: 7, height: 7, borderRadius: 3.5 },
-  chipActive: { backgroundColor: Colors.primary },
-  chipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
-  chipTextActive: { color: Colors.onPrimary },
+  chipActive: { backgroundColor: C.primary },
+  chipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  chipTextActive: { color: C.onPrimary },
   list: { paddingHorizontal: Spacing.lg, paddingBottom: 140 },
 
   recipeCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
   cardAccent: { width: 4, alignSelf: 'stretch' },
@@ -273,34 +278,34 @@ const styles = StyleSheet.create({
   thumbnailPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.lg },
   cardContent: { flex: 1, paddingVertical: Spacing.sm, paddingRight: 4 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: 3 },
-  recipeName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface, flex: 1 },
+  recipeName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, flex: 1 },
   catBadge: {
-    backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.full,
+    backgroundColor: C.surfaceContainerHigh, borderRadius: BorderRadius.full,
     paddingHorizontal: 6, paddingVertical: 2,
   },
-  catBadgeText: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant },
+  catBadgeText: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant },
   cardMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  metaText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.onSurfaceVariant },
-  metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.outlineVariant, marginHorizontal: 4 },
+  metaText: { fontFamily: FontFamily.body, fontSize: 11, color: C.onSurfaceVariant },
+  metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.outlineVariant, marginHorizontal: 4 },
   cardBottom: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   wellnessBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: BorderRadius.full },
   wellnessBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 10 },
-  ingCount: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant },
+  ingCount: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant },
   chevron: { marginRight: Spacing.sm },
 
   empty: { alignItems: 'center', paddingVertical: 60, gap: Spacing.sm },
-  emptyIconWrap: { width: 70, height: 70, borderRadius: 35, backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.headlineSm, color: Colors.onSurface },
-  emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  emptyIconWrap: { width: 70, height: 70, borderRadius: 35, backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.headlineSm, color: C.onSurface },
+  emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
   fabRow: { position: 'absolute', right: Spacing.lg, flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   fab: {
     width: 54, height: 54, borderRadius: 27,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
   fabSecondary: {
-    backgroundColor: Colors.surfaceContainerLowest,
+    backgroundColor: C.surfaceContainerLowest,
     shadowColor: '#000', shadowOpacity: 0.1,
   },
 });

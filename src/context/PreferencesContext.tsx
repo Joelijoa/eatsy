@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Colors, DarkColors } from '../constants/colors';
 
 export type Language = 'fr' | 'en';
 export type Currency = 'EUR' | 'MAD';
@@ -62,6 +63,9 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     dashboard_tip_ok: 'Budget bien géré. Continuez ainsi !',
     dashboard_settings: 'Paramètres',
     dashboard_per_person: '/pers.',
+    dashboard_pantry_title: 'Garde-manger',
+    dashboard_pantry_count: 'ingrédient(s) en stock',
+    dashboard_pantry_empty: 'Gérez votre stock',
     // Recipes
     recipes_title: 'Recettes',
     recipes_add: 'Ajouter',
@@ -92,6 +96,32 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     shopping_clear_checked: 'Effacer cochés',
     shopping_delete_confirm: 'Supprimer cet article ?',
     shopping_new_item: 'Nouvel article',
+    shopping_generate: 'Générer depuis le planning',
+    shopping_generate_title: 'Générer la liste de courses',
+    shopping_generate_desc: 'Importez les ingrédients manquants à partir de vos repas planifiés cette semaine.',
+    shopping_generate_no_plan: 'Aucun repas planifié cette semaine.',
+    shopping_generate_replace: 'Remplacer la liste',
+    shopping_generate_merge: 'Fusionner avec la liste',
+    shopping_generate_btn: 'Générer',
+    shopping_generate_done: 'articles ajoutés',
+    shopping_generate_in_stock: 'déjà en stock',
+    // Notifications
+    settings_notifications: 'Rappels repas',
+    settings_notifications_sub: 'Notifications quotidiennes pour chaque repas',
+    settings_notifications_breakfast: 'Petit-déjeuner',
+    settings_notifications_lunch: 'Déjeuner',
+    settings_notifications_dinner: 'Dîner',
+    settings_notifications_permission: 'Permission notifications refusée. Activez-la dans les réglages de votre téléphone.',
+    // Cooking
+    cooking_deduct_title: 'Cuisine terminée !',
+    cooking_deduct_question: 'Déduire les ingrédients utilisés de votre garde-manger ?',
+    cooking_deduct_yes: 'Mettre à jour le stock',
+    cooking_deduct_no: 'Non, terminer',
+    // Budget history
+    budget_history: 'Historique',
+    budget_prev_weeks: 'Semaines précédentes',
+    budget_no_history: 'Aucun historique disponible',
+    budget_week_of: 'Semaine du',
     // Planner
     planner_title: 'Planning',
     planner_week_of: 'Semaine du',
@@ -102,6 +132,24 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     planner_meals_planned: 'repas planifiés',
     planner_clear_slot: 'Vider le créneau',
     planner_overview: 'Vue semaine',
+    planner_custom_meal: 'Saisir un repas libre',
+    planner_or_recipe: 'ou choisir une recette',
+    planner_search_recipe: 'Rechercher une recette…',
+    planner_today: "Aujourd'hui",
+    planner_day_mon: 'Lundi',
+    planner_day_tue: 'Mardi',
+    planner_day_wed: 'Mercredi',
+    planner_day_thu: 'Jeudi',
+    planner_day_fri: 'Vendredi',
+    planner_day_sat: 'Samedi',
+    planner_day_sun: 'Dimanche',
+    planner_day_short_mon: 'L',
+    planner_day_short_tue: 'M',
+    planner_day_short_wed: 'M',
+    planner_day_short_thu: 'J',
+    planner_day_short_fri: 'V',
+    planner_day_short_sat: 'S',
+    planner_day_short_sun: 'D',
     // Budget
     budget_title: 'Budget',
     // Settings
@@ -200,6 +248,9 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     dashboard_tip_ok: 'Budget well managed. Keep it up!',
     dashboard_settings: 'Settings',
     dashboard_per_person: '/person',
+    dashboard_pantry_title: 'Pantry',
+    dashboard_pantry_count: 'ingredient(s) in stock',
+    dashboard_pantry_empty: 'Manage your stock',
     // Recipes
     recipes_title: 'Recipes',
     recipes_add: 'Add',
@@ -230,6 +281,32 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     shopping_clear_checked: 'Clear checked',
     shopping_delete_confirm: 'Delete this item?',
     shopping_new_item: 'New item',
+    shopping_generate: 'Generate from planner',
+    shopping_generate_title: 'Generate shopping list',
+    shopping_generate_desc: 'Import missing ingredients from your planned meals this week.',
+    shopping_generate_no_plan: 'No meals planned this week.',
+    shopping_generate_replace: 'Replace list',
+    shopping_generate_merge: 'Merge with list',
+    shopping_generate_btn: 'Generate',
+    shopping_generate_done: 'items added',
+    shopping_generate_in_stock: 'already in stock',
+    // Notifications
+    settings_notifications: 'Meal reminders',
+    settings_notifications_sub: 'Daily notifications for each meal',
+    settings_notifications_breakfast: 'Breakfast',
+    settings_notifications_lunch: 'Lunch',
+    settings_notifications_dinner: 'Dinner',
+    settings_notifications_permission: 'Notification permission denied. Enable it in your phone settings.',
+    // Cooking
+    cooking_deduct_title: 'Cooking done!',
+    cooking_deduct_question: 'Deduct used ingredients from your pantry?',
+    cooking_deduct_yes: 'Update stock',
+    cooking_deduct_no: 'No, finish',
+    // Budget history
+    budget_history: 'History',
+    budget_prev_weeks: 'Previous weeks',
+    budget_no_history: 'No history available',
+    budget_week_of: 'Week of',
     // Planner
     planner_title: 'Planner',
     planner_week_of: 'Week of',
@@ -240,6 +317,24 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     planner_meals_planned: 'meals planned',
     planner_clear_slot: 'Clear slot',
     planner_overview: 'Week overview',
+    planner_custom_meal: 'Enter a free meal',
+    planner_or_recipe: 'or choose a recipe',
+    planner_search_recipe: 'Search a recipe…',
+    planner_today: 'Today',
+    planner_day_mon: 'Monday',
+    planner_day_tue: 'Tuesday',
+    planner_day_wed: 'Wednesday',
+    planner_day_thu: 'Thursday',
+    planner_day_fri: 'Friday',
+    planner_day_sat: 'Saturday',
+    planner_day_sun: 'Sunday',
+    planner_day_short_mon: 'M',
+    planner_day_short_tue: 'T',
+    planner_day_short_wed: 'W',
+    planner_day_short_thu: 'T',
+    planner_day_short_fri: 'F',
+    planner_day_short_sat: 'S',
+    planner_day_short_sun: 'S',
     // Budget
     budget_title: 'Budget',
     // Settings
@@ -375,3 +470,8 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
 };
 
 export const usePreferences = () => useContext(PreferencesContext);
+
+export const useColors = () => {
+  const { darkMode } = useContext(PreferencesContext);
+  return darkMode ? DarkColors : Colors;
+};

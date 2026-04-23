@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -17,6 +18,7 @@ type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Login'
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +45,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       setLoading(false);
     }
   };
+
+  const styles = createStyles(Colors);
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -103,25 +107,25 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  flex: { flex: 1, backgroundColor: C.surface },
   content: { flexGrow: 1, paddingHorizontal: Spacing.lg, justifyContent: 'center' },
   logoSection: { alignItems: 'center', marginBottom: Spacing.xl },
   logoIcon: {
     width: 60, height: 60, borderRadius: BorderRadius.xl,
-    backgroundColor: `${Colors.primary}15`, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
+    backgroundColor: `${C.primary}15`, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md,
   },
-  logoText: { fontFamily: FontFamily.headlineBold, fontSize: 34, color: Colors.onSurface, letterSpacing: -1 },
-  tagline: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, marginTop: 4 },
+  logoText: { fontFamily: FontFamily.headlineBold, fontSize: 34, color: C.onSurface, letterSpacing: -1 },
+  tagline: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, marginTop: 4 },
   card: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
     padding: Spacing.xl, marginBottom: Spacing.lg,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3,
   },
-  cardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.onSurface, marginBottom: Spacing.lg },
+  cardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onSurface, marginBottom: Spacing.lg },
   forgotRow: { alignItems: 'flex-end', marginBottom: Spacing.lg, marginTop: -Spacing.xs },
-  forgotText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
+  forgotText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
   signupRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  signupText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  signupLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
+  signupText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  signupLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
 });

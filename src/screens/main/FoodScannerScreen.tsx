@@ -7,6 +7,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { addShoppingItem } from '../../services/shoppingListService';
@@ -34,6 +35,8 @@ const NUTRISCORE_COLORS: Record<string, string> = {
 export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
+  const styles = createStyles(Colors);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -250,8 +253,8 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
   center: { alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
 
   /* Camera */
@@ -266,15 +269,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
   },
   scanFrame: {
-    width: 260, height: 170, borderWidth: 2.5, borderColor: Colors.inversePrimary,
+    width: 260, height: 170, borderWidth: 2.5, borderColor: C.inversePrimary,
     borderRadius: BorderRadius.xl, backgroundColor: 'transparent',
-    shadowColor: Colors.inversePrimary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 14,
+    shadowColor: C.inversePrimary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 14,
   },
   scanHint: { marginTop: Spacing.xl, fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: '#fff' },
 
   /* Header */
   headerBand: {
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg + 16,
+    backgroundColor: C.primary, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg + 16,
     borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden',
   },
   headerDecor: {
@@ -300,63 +303,63 @@ const styles = StyleSheet.create({
 
   /* Cards */
   card: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
     padding: Spacing.lg, marginBottom: Spacing.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
   cardLabel: {
-    fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant,
+    fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant,
     textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: Spacing.sm,
   },
 
   /* Nutrition */
   nutriRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xs },
   nutriIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  nutriLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, flex: 1 },
-  nutriValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  nutriLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, flex: 1 },
+  nutriValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: C.onSurface },
 
   /* Qty */
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   qtyField: {
-    width: 64, height: 44, backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.lg,
-    fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface,
+    width: 64, height: 44, backgroundColor: C.surfaceContainerHigh, borderRadius: BorderRadius.lg,
+    fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface,
     textAlign: 'center',
   },
   unitRow: { gap: Spacing.xs, alignItems: 'center' },
   unitChip: {
     height: 34, paddingHorizontal: Spacing.sm, borderRadius: BorderRadius.full,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
-  unitChipActive: { backgroundColor: Colors.primary },
-  unitChipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
-  unitChipTextActive: { color: Colors.onPrimary },
+  unitChipActive: { backgroundColor: C.primary },
+  unitChipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  unitChipTextActive: { color: C.onPrimary },
 
   rescanRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: Spacing.sm,
   },
-  rescanText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  rescanText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
 
   /* Fixed actions */
   actions: {
     flexDirection: 'row', gap: Spacing.sm,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1, borderTopColor: Colors.surfaceContainerHigh,
+    backgroundColor: C.surface,
+    borderTopWidth: 1, borderTopColor: C.surfaceContainerHigh,
   },
   actionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 15, borderRadius: BorderRadius.xl,
   },
   actionBtnOutline: {
-    backgroundColor: Colors.surfaceContainerLowest,
-    borderWidth: 1.5, borderColor: Colors.primary,
+    backgroundColor: C.surfaceContainerLowest,
+    borderWidth: 1.5, borderColor: C.primary,
   },
-  actionBtnFill: { backgroundColor: Colors.primary },
+  actionBtnFill: { backgroundColor: C.primary },
   actionBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd },
 
   /* Permissions */
-  permText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, textAlign: 'center' },
-  permBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.xl, paddingVertical: 13 },
-  permBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  permText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, textAlign: 'center' },
+  permBtn: { backgroundColor: C.primary, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.xl, paddingVertical: 13 },
+  permBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
 });

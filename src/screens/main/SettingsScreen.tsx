@@ -1,22 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences, Language, Currency } from '../../context/PreferencesContext';
+import { usePreferences, Language, Currency , useColors } from '../../context/PreferencesContext';
 import { signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
+import {
+  loadNotificationSettings, saveNotificationSettings, scheduleMealNotifications,
+  cancelMealNotifications, MealNotificationSettings,
+} from '../../services/notificationService';
 
 type Props = { navigation: any };
 
 export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
   const { user } = useAuth();
   const { t, language, currency, darkMode, setLanguage, setCurrency, setDarkMode } = usePreferences();
   const [helpExpanded, setHelpExpanded] = useState(false);
+  const [notifSettings, setNotifSettings] = useState<MealNotificationSettings | null>(null);
+
+  useEffect(() => {
+    loadNotificationSettings().then(setNotifSettings);
+  }, []);
+
+  const toggleNotifications = async (enabled: boolean) => {
+    if (!notifSettings) return;
+    const updated = { ...notifSettings, enabled };
+    setNotifSettings(updated);
+    await saveNotificationSettings(updated);
+    if (enabled) {
+      const granted = await import('../../services/notificationService').then(
+        (m) => m.requestNotificationPermission(),
+      );
+      if (!granted) {
+        Alert.alert('', t('settings_notifications_permission'));
+        const reverted = { ...updated, enabled: false };
+        setNotifSettings(reverted);
+        await saveNotificationSettings(reverted);
+        return;
+      }
+      await scheduleMealNotifications(updated, {
+        breakfast: t('settings_notifications_breakfast'),
+        lunch: t('settings_notifications_lunch'),
+        dinner: t('settings_notifications_dinner'),
+      });
+    } else {
+      await cancelMealNotifications();
+    }
+  };
 
   const savePrefsToFirestore = async (patch: object) => {
     if (!user) return;
@@ -47,6 +83,8 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     { value: 'EUR', label: t('settings_eur') },
     { value: 'MAD', label: t('settings_mad') },
   ];
+
+  const styles = createStyles(Colors);
 
   return (
     <View style={styles.screen}>
@@ -153,6 +191,49 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Notifications */}
+        {notifSettings !== null && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionCardHeader}>
+              <View style={styles.sectionCardIcon}>
+                <Ionicons name="notifications-outline" size={18} color={Colors.primary} />
+              </View>
+              <Text style={styles.sectionCardTitle}>{t('settings_notifications')}</Text>
+            </View>
+            <View style={styles.darkModeRow}>
+              <View style={styles.darkModeLeft}>
+                <Ionicons name="alarm-outline" size={20} color={notifSettings.enabled ? Colors.primary : Colors.onSurfaceVariant} />
+                <View>
+                  <Text style={styles.darkModeLabel}>{t('settings_notifications')}</Text>
+                  <Text style={styles.darkModeSub}>{t('settings_notifications_sub')}</Text>
+                </View>
+              </View>
+              <Switch
+                value={notifSettings.enabled}
+                onValueChange={toggleNotifications}
+                trackColor={{ false: Colors.surfaceContainerHigh, true: Colors.primary }}
+                thumbColor={notifSettings.enabled ? Colors.onPrimary : Colors.surface}
+              />
+            </View>
+            {notifSettings.enabled && (
+              <View style={styles.notifTimes}>
+                {[
+                  { labelKey: 'settings_notifications_breakfast', hour: notifSettings.breakfastHour, min: notifSettings.breakfastMinute },
+                  { labelKey: 'settings_notifications_lunch', hour: notifSettings.lunchHour, min: notifSettings.lunchMinute },
+                  { labelKey: 'settings_notifications_dinner', hour: notifSettings.dinnerHour, min: notifSettings.dinnerMinute },
+                ].map((m, idx) => (
+                  <View key={idx} style={[styles.notifTimeRow, idx < 2 && styles.notifTimeRowBorder]}>
+                    <Text style={styles.notifTimeLabel}>{t(m.labelKey)}</Text>
+                    <Text style={styles.notifTimeValue}>
+                      {String(m.hour).padStart(2, '0')}:{String(m.min).padStart(2, '0')}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Help */}
         <View style={styles.sectionCard}>
           <TouchableOpacity style={styles.sectionCardHeader} onPress={() => setHelpExpanded(!helpExpanded)}>
@@ -216,106 +297,115 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md,
   },
   backBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
-  topBarTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface },
+  topBarTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
 
   userCard: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
   },
   userAvatar: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.primary,
+    width: 52, height: 52, borderRadius: 26, backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  userAvatarText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.onPrimary },
+  userAvatarText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onPrimary },
   userInfo: { flex: 1 },
-  userName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface },
-  userEmail: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, marginTop: 2 },
+  userName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
+  userEmail: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, marginTop: 2 },
 
   sectionCard: {
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
   },
   sectionCardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.md },
   sectionCardIcon: {
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center',
   },
-  sectionCardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.onSurface },
+  sectionCardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.onSurface },
 
   optionsRow: { flexDirection: 'row', gap: Spacing.sm },
   optionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: Spacing.md, borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.surfaceContainerLow, borderWidth: 1.5, borderColor: 'transparent',
+    backgroundColor: C.surfaceContainerLow, borderWidth: 1.5, borderColor: 'transparent',
   },
-  optionBtnActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}08` },
+  optionBtnActive: { borderColor: C.primary, backgroundColor: `${C.primary}08` },
   optionFlag: { fontSize: 18 },
-  optionLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  optionLabelActive: { color: Colors.primary },
+  optionLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  optionLabelActive: { color: C.primary },
 
   currencyRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14,
   },
-  currencyRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surfaceContainerHigh },
+  currencyRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
   currencyLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   currencySymbolWrap: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
-  currencySymbolWrapActive: { backgroundColor: `${Colors.primary}15` },
-  currencySymbol: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  currencySymbolActive: { color: Colors.primary },
-  currencyLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  currencySymbolWrapActive: { backgroundColor: `${C.primary}15` },
+  currencySymbol: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  currencySymbolActive: { color: C.primary },
+  currencyLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
   radioOuter: {
     width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-    borderColor: Colors.outlineVariant, alignItems: 'center', justifyContent: 'center',
+    borderColor: C.outlineVariant, alignItems: 'center', justifyContent: 'center',
   },
-  radioOuterActive: { borderColor: Colors.primary },
-  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  radioOuterActive: { borderColor: C.primary },
+  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.primary },
 
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     paddingVertical: Spacing.sm,
   },
-  logoutText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.error },
+  logoutText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.error },
 
   darkModeRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: Spacing.xs,
   },
   darkModeLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  darkModeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  darkModeSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 1 },
+  darkModeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  darkModeSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 1 },
+
+  notifTimes: {
+    marginTop: Spacing.sm, backgroundColor: C.surfaceContainerLow,
+    borderRadius: BorderRadius.xl, overflow: 'hidden',
+  },
+  notifTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, paddingHorizontal: Spacing.md },
+  notifTimeRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
+  notifTimeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  notifTimeValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: C.primary },
 
   helpList: { marginTop: Spacing.xs },
   helpItem: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.sm },
-  helpItemBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surfaceContainerHigh },
+  helpItemBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
   helpIcon: {
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: `${Colors.primary}10`, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${C.primary}10`, alignItems: 'center', justifyContent: 'center',
     marginTop: 2,
   },
   helpText: { flex: 1 },
-  helpTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  helpDesc: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 2, lineHeight: 18 },
+  helpTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  helpDesc: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 2, lineHeight: 18 },
 
   aboutRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  aboutLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  aboutValue: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  sep: { height: 1, backgroundColor: Colors.surfaceContainerHigh, marginVertical: 4 },
-  copyrightText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface, paddingVertical: 4 },
-  copyrightSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 2 },
+  aboutLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  aboutValue: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  sep: { height: 1, backgroundColor: C.surfaceContainerHigh, marginVertical: 4 },
+  copyrightText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, paddingVertical: 4 },
+  copyrightSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 2 },
 });

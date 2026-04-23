@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, RefreshControl,
+  TouchableOpacity, RefreshControl, Animated,
 } from 'react-native';
+import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences } from '../../context/PreferencesContext';
@@ -33,6 +35,7 @@ type Props = { navigation: any };
 export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { t, formatCurrency } = usePreferences();
+  const Colors = useColors();
   const insets = useSafeAreaInsets();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
@@ -114,28 +117,29 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const mealLabels = [t('meal_breakfast_full'), t('meal_lunch'), t('meal_dinner')];
 
-  return (
-    <View style={styles.screen}>
-      <View style={[styles.headerBg, { height: 240 + insets.top }]}>
-        <View style={styles.blob1} />
-        <View style={styles.blob2} />
-        <View style={styles.blob3} />
-      </View>
+  const styles = createStyles(Colors);
+  const { opacity, translateY } = useScreenEntrance();
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.onPrimary} />}
-        contentContainerStyle={{ paddingTop: insets.top }}
-      >
-        {/* Header */}
-        <View style={styles.header}>
+  return (
+    <Animated.View style={[styles.screen, { opacity }]}>
+      {/* Header band — même structure que les autres onglets */}
+      <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.headerDecor} />
+        <View style={styles.headerRow}>
           <View>
             <Text style={styles.greeting}>{greeting()}</Text>
             <Text style={styles.userName}>{user?.displayName?.split(' ')[0] ?? 'Chef'}</Text>
           </View>
           <HeaderActions navigation={navigation} />
         </View>
+      </View>
 
+      <Animated.View style={{ flex: 1, transform: [{ translateY }] }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        contentContainerStyle={{ paddingTop: Spacing.lg }}
+      >
         {/* Next meal */}
         <View style={styles.nextMealCard}>
           <View style={styles.nextMealLeft}>
@@ -146,7 +150,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.nextMealLabel}>{mealLabels[nextMealIdx]}</Text>
           </View>
           <View style={styles.nextMealIcon}>
-            <Ionicons name={MEAL_ICONS[mealKeyIds[nextMealIdx]]} size={32} color="rgba(255,255,255,0.9)" />
+            <Ionicons name={MEAL_ICONS[mealKeyIds[nextMealIdx]]} size={26} color={Colors.onPrimary} />
           </View>
         </View>
 
@@ -334,9 +338,9 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Ionicons name="basket-outline" size={22} color={Colors.primary} />
               </View>
               <View>
-                <Text style={styles.pantryTitle}>Garde-manger</Text>
+                <Text style={styles.pantryTitle}>{t('dashboard_pantry_title')}</Text>
                 <Text style={styles.pantrySub}>
-                  {pantryCount > 0 ? `${pantryCount} ingrédient${pantryCount > 1 ? 's' : ''} en stock` : 'Gérez votre stock'}
+                  {pantryCount > 0 ? `${pantryCount} ${t('dashboard_pantry_count')}` : t('dashboard_pantry_empty')}
                 </Text>
               </View>
             </View>
@@ -365,25 +369,25 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={{ height: 110 }} />
       </ScrollView>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
-  headerBg: {
-    position: 'absolute', top: 0, left: 0, right: 0,
-    backgroundColor: Colors.primary, borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
+
+  headerBand: {
+    backgroundColor: C.primary,
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg + 16,
+    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
     overflow: 'hidden',
   },
-  blob1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: Colors.primaryContainer, opacity: 0.35, top: -60, right: -40 },
-  blob2: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: Colors.secondaryContainer, opacity: 0.25, bottom: 10, left: -30 },
-  blob3: { position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: Colors.primaryFixed, opacity: 0.2, top: 40, left: 80 },
-
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.sm,
+  headerDecor: {
+    position: 'absolute', width: 220, height: 220, borderRadius: 110,
+    backgroundColor: 'rgba(255,255,255,0.06)', top: -70, right: -50,
   },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   greeting: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)' },
   userName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg, color: '#fff', marginTop: 2 },
 
@@ -391,139 +395,140 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: C.primaryContainer,
+    borderRadius: BorderRadius.xxl,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 3,
   },
   nextMealLeft: { flex: 1 },
-  nextMealTag: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
-  nextMealName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: '#fff' },
-  nextMealLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  nextMealIcon: { marginLeft: Spacing.md },
+  nextMealTag: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: C.primary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
+  nextMealName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onPrimaryContainer },
+  nextMealLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 2 },
+  nextMealIcon: { marginLeft: Spacing.md, width: 48, height: 48, borderRadius: 24, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
 
   budgetCard: {
     marginHorizontal: Spacing.lg, marginTop: Spacing.sm, marginBottom: Spacing.md,
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 5,
   },
   budgetTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
-  budgetLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginBottom: 4 },
+  budgetLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginBottom: 4 },
   budgetAmountRow: { flexDirection: 'row', alignItems: 'baseline' },
-  budgetAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displayMd, color: Colors.onSurface, letterSpacing: -0.5 },
-  budgetAmountOver: { color: Colors.tertiary },
-  budgetLimit: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  budgetAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displayMd, color: C.onSurface, letterSpacing: -0.5 },
+  budgetAmountOver: { color: C.tertiary },
+  budgetLimit: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
   budgetBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: Spacing.sm, paddingVertical: 5, borderRadius: BorderRadius.full,
   },
-  budgetBadgeOk: { backgroundColor: `${Colors.primary}12` },
-  budgetBadgeOver: { backgroundColor: `${Colors.tertiary}15` },
-  budgetBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
-  budgetBadgeTextOver: { color: Colors.tertiary },
-  progressBar: { height: 6, backgroundColor: Colors.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden', marginBottom: Spacing.lg },
+  budgetBadgeOk: { backgroundColor: `${C.primary}12` },
+  budgetBadgeOver: { backgroundColor: `${C.tertiary}15` },
+  budgetBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
+  budgetBadgeTextOver: { color: C.tertiary },
+  progressBar: { height: 6, backgroundColor: C.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden', marginBottom: Spacing.lg },
   progressFill: { height: '100%', borderRadius: 3 },
   budgetStats: { flexDirection: 'row', alignItems: 'center' },
   budgetStat: { flex: 1, alignItems: 'center' },
-  budgetStatValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface },
-  budgetStatLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, marginTop: 1 },
-  budgetStatDivider: { width: 1, height: 28, backgroundColor: Colors.surfaceContainerHigh },
+  budgetStatValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
+  budgetStatLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, marginTop: 1 },
+  budgetStatDivider: { width: 1, height: 28, backgroundColor: C.surfaceContainerHigh },
 
   section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.onSurface },
-  dayCostPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.primary}12`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
-  dayCostText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
+  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: C.onSurface },
+  dayCostPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${C.primary}12`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
+  dayCostText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
 
   todayCard: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
   mealRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: Spacing.md, gap: Spacing.sm },
-  mealRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surfaceContainerHigh },
-  mealRowHighlight: { backgroundColor: `${Colors.primary}07` },
-  mealIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' },
-  mealIconWrapActive: { backgroundColor: Colors.primary },
+  mealRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
+  mealRowHighlight: { backgroundColor: `${C.primary}07` },
+  mealIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' },
+  mealIconWrapActive: { backgroundColor: C.primary },
   mealContent: { flex: 1 },
-  mealLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.5 },
-  mealLabelActive: { color: Colors.primary },
-  mealName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface, marginTop: 1 },
-  mealNameEmpty: { color: Colors.outlineVariant, fontFamily: FontFamily.body },
-  mealCost: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
-  nextBadge: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingHorizontal: 8, paddingVertical: 3, marginLeft: Spacing.xs },
-  nextBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: Colors.onPrimary },
+  mealLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.5 },
+  mealLabelActive: { color: C.primary },
+  mealName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, marginTop: 1 },
+  mealNameEmpty: { color: C.outlineVariant, fontFamily: FontFamily.body },
+  mealCost: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
+  nextBadge: { backgroundColor: C.primary, borderRadius: BorderRadius.full, paddingHorizontal: 8, paddingVertical: 3, marginLeft: Spacing.xs },
+  nextBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: C.onPrimary },
 
   // Wellness — new
-  varietyScorePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.primary}12`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
-  varietyScoreText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
+  varietyScorePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${C.primary}12`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
+  varietyScoreText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
 
   wellnessStatsRow: {
-    flexDirection: 'row', backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl,
+    flexDirection: 'row', backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl,
     padding: Spacing.md, marginBottom: Spacing.sm,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   wellnessStatBox: { flex: 1, alignItems: 'center', gap: 3 },
-  wellnessStatValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.onSurface },
-  wellnessStatLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, textAlign: 'center' },
-  wellnessStatDivider: { width: 1, backgroundColor: Colors.surfaceContainerHigh },
+  wellnessStatValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.onSurface },
+  wellnessStatLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, textAlign: 'center' },
+  wellnessStatDivider: { width: 1, backgroundColor: C.surfaceContainerHigh },
 
   wellnessBarsCard: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   wellnessBarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 13, gap: Spacing.sm },
-  wellnessBarRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surfaceContainerHigh },
+  wellnessBarRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
   wellnessBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, width: 90 },
   wellnessBarIcon: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  wellnessBarLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurface },
+  wellnessBarLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurface },
   wellnessBarCenter: { flex: 1 },
-  wellnessBarTrack: { height: 8, backgroundColor: Colors.surfaceContainerHigh, borderRadius: 4, overflow: 'hidden' },
+  wellnessBarTrack: { height: 8, backgroundColor: C.surfaceContainerHigh, borderRadius: 4, overflow: 'hidden' },
   wellnessBarFill: { height: '100%', borderRadius: 4 },
   wellnessBarRight: { alignItems: 'flex-end', width: 60 },
   wellnessBarPct: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd },
-  wellnessBarCount: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, marginTop: 1 },
+  wellnessBarCount: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, marginTop: 1 },
 
   // Week strip
   weekStrip: {
-    flexDirection: 'row', backgroundColor: Colors.surfaceContainerLowest,
+    flexDirection: 'row', backgroundColor: C.surfaceContainerLowest,
     borderRadius: BorderRadius.xl, padding: Spacing.sm,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   weekDay: { flex: 1, alignItems: 'center', paddingVertical: Spacing.xs, borderRadius: BorderRadius.lg },
-  weekDayActive: { backgroundColor: Colors.primary },
-  weekDayLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant, marginBottom: 1 },
-  weekDayLabelActive: { color: Colors.onPrimary },
-  weekDayNum: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: Colors.onSurfaceVariant, marginBottom: 3 },
-  weekDayNumActive: { color: Colors.onPrimary },
+  weekDayActive: { backgroundColor: C.primary },
+  weekDayLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, marginBottom: 1 },
+  weekDayLabelActive: { color: C.onPrimary },
+  weekDayNum: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onSurfaceVariant, marginBottom: 3 },
+  weekDayNumActive: { color: C.onPrimary },
   weekDayDots: { flexDirection: 'column', gap: 2 },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.surfaceContainerHigh },
-  dotFilled: { backgroundColor: Colors.outline },
-  dotFilledActive: { backgroundColor: Colors.onPrimary },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.surfaceContainerHigh },
+  dotFilled: { backgroundColor: C.outline },
+  dotFilledActive: { backgroundColor: C.onPrimary },
 
   pantryCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl,
     padding: Spacing.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   pantryLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   pantryIconWrap: {
     width: 42, height: 42, borderRadius: 21,
-    backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center',
   },
-  pantryTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  pantrySub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 1 },
+  pantryTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  pantrySub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 1 },
   pantryRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pantryCountBadge: {
-    backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
+    backgroundColor: C.primary, borderRadius: BorderRadius.full,
     paddingHorizontal: 8, paddingVertical: 2,
   },
-  pantryCountText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: Colors.onPrimary },
+  pantryCountText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onPrimary },
   tipCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,
-    backgroundColor: `${Colors.secondaryContainer}50`, borderRadius: BorderRadius.xl, padding: Spacing.md,
+    backgroundColor: `${C.secondaryContainer}50`, borderRadius: BorderRadius.xl, padding: Spacing.md,
   },
   tipIconWrap: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: `${Colors.secondary}15`, alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    backgroundColor: `${C.secondary}15`, alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  tipText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.secondary, flex: 1, lineHeight: 20 },
+  tipText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.secondary, flex: 1, lineHeight: 20 },
 });

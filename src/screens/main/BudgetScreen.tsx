@@ -1,38 +1,47 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Animated } from 'react-native';
+import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences } from '../../context/PreferencesContext';
-import { getOrCreateWeekPlan, getWeekStart } from '../../services/plannerService';
+import { usePreferences , useColors } from '../../context/PreferencesContext';
+import { getOrCreateWeekPlan, getPastWeekPlans, getWeekStart } from '../../services/plannerService';
 import { WeekPlan } from '../../types';
 import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { HeaderActions } from '../../components/HeaderActions';
 
-const DAY_LABELS: Record<string, string> = {
-  monday: 'Lundi', tuesday: 'Mardi', wednesday: 'Mercredi',
-  thursday: 'Jeudi', friday: 'Vendredi', saturday: 'Samedi', sunday: 'Dimanche',
+const DAY_LABEL_KEYS: Record<string, string> = {
+  monday: 'planner_day_mon', tuesday: 'planner_day_tue', wednesday: 'planner_day_wed',
+  thursday: 'planner_day_thu', friday: 'planner_day_fri', saturday: 'planner_day_sat', sunday: 'planner_day_sun',
 };
-const MEAL_LABELS: Record<string, string> = {
-  breakfast: 'Matin', lunch: 'Midi', dinner: 'Soir',
+const MEAL_LABEL_KEYS: Record<string, string> = {
+  breakfast: 'meal_breakfast_full', lunch: 'meal_lunch', dinner: 'meal_dinner',
 };
 
 export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
-  const { formatCurrency, currencySymbol } = usePreferences();
+  const { formatCurrency, currencySymbol, t } = usePreferences();
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
+  const styles = createStyles(Colors);
+  const { opacity, translateY } = useScreenEntrance();
   const [plan, setPlan] = useState<WeekPlan | null>(null);
+  const [pastPlans, setPastPlans] = useState<WeekPlan[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
 
   const loadData = async () => {
     if (!user) return;
-    const wp = await getOrCreateWeekPlan(user.uid, getWeekStart());
+    const [wp, past] = await Promise.all([
+      getOrCreateWeekPlan(user.uid, getWeekStart()),
+      getPastWeekPlans(user.uid, 4),
+    ]);
     setPlan(wp);
+    setPastPlans(past);
     setBudgetInput(String(wp.weeklyBudgetLimit ?? 120));
   };
 
@@ -56,11 +65,11 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     const meals = [dayPlan.breakfast, dayPlan.lunch, dayPlan.dinner];
     const total = meals.reduce((s, m) => s + ((m as any).cost ?? 0), 0);
     const mealDetails = meals.map((m, idx) => ({
-      label: MEAL_LABELS[['breakfast', 'lunch', 'dinner'][idx]],
+      label: t(MEAL_LABEL_KEYS[['breakfast', 'lunch', 'dinner'][idx]]),
       cost: (m as any).cost ?? 0,
       name: (m as any).recipeName,
     })).filter((m) => m.cost > 0);
-    return { dayKey, label: DAY_LABELS[dayKey], total, mealDetails };
+    return { dayKey, label: t(DAY_LABEL_KEYS[dayKey] ?? dayKey), total, mealDetails };
   });
 
   const weeklyTotal = dayTotals.reduce((s, d) => s + d.total, 0);
@@ -69,7 +78,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const barColor = isOver ? Colors.tertiary : pct > 0.8 ? Colors.tertiary : Colors.primary;
 
   return (
-    <View style={styles.screen}>
+    <Animated.View style={[styles.screen, { opacity, transform: [{ translateY }] }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
@@ -175,19 +184,59 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           ))}
         </View>
 
+        {/* History */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Historique</Text>
+          {pastPlans.length === 0 ? (
+            <View style={styles.historyEmpty}>
+              <Ionicons name="time-outline" size={22} color={Colors.outlineVariant} />
+              <Text style={styles.historyEmptyText}>Aucun historique disponible</Text>
+            </View>
+          ) : (
+            pastPlans.map((past) => {
+              const pastTotal = Object.values(past.days).flatMap((d) =>
+                [d.breakfast, d.lunch, d.dinner].map((m) => (m as any).cost ?? 0)
+              ).reduce((s, v) => s + v, 0);
+              const pastLimit = past.weeklyBudgetLimit ?? 120;
+              const pastPct = pastLimit > 0 ? Math.min(pastTotal / pastLimit, 1) : 0;
+              const pastOver = pastTotal > pastLimit;
+              const [, month, day] = past.weekStart.split('-');
+              return (
+                <View key={past.id} style={styles.historyCard}>
+                  <View style={styles.historyRow}>
+                    <Text style={styles.historyWeek}>{`${day}/${month}`}</Text>
+                    <View style={styles.historyRight}>
+                      <Text style={[styles.historyAmount, pastOver && { color: Colors.tertiary }]}>
+                        {formatCurrency(pastTotal)}
+                      </Text>
+                      <Text style={styles.historyLimit}>/ {formatCurrency(pastLimit)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.historyBar}>
+                    <View style={[
+                      styles.historyBarFill,
+                      { width: `${pastPct * 100}%` as any, backgroundColor: pastOver ? Colors.tertiary : Colors.primary }
+                    ]} />
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
         <View style={{ height: 100 }} />
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { fontFamily: FontFamily.body, color: Colors.onSurfaceVariant },
+  loadingText: { fontFamily: FontFamily.body, color: C.onSurfaceVariant },
   headerBand: {
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg + 20, overflow: 'hidden',
+    backgroundColor: C.primary, paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg + 16, overflow: 'hidden',
     borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
   headerDecor: {
@@ -204,61 +253,76 @@ const styles = StyleSheet.create({
   headerProgress: { height: 6, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 3, overflow: 'hidden' },
   headerProgressFill: { height: '100%', borderRadius: 3 },
   heroCard: {
-    marginHorizontal: Spacing.lg, backgroundColor: Colors.surfaceContainerLowest,
+    marginHorizontal: Spacing.lg, backgroundColor: C.surfaceContainerLowest,
     borderRadius: BorderRadius.xxl, padding: Spacing.lg, marginBottom: Spacing.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
   },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
-  heroLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, marginBottom: 4 },
-  heroAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displayMd, color: Colors.onSurface, letterSpacing: -0.5 },
-  heroAmountOver: { color: Colors.tertiary },
+  heroLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, marginBottom: 4 },
+  heroAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displayMd, color: C.onSurface, letterSpacing: -0.5 },
+  heroAmountOver: { color: C.tertiary },
   heroRight: { alignItems: 'flex-end', gap: 4 },
   editLimitBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editLimitText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
-  limitLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  editLimitText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
+  limitLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   budgetInput: {
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.sm, paddingVertical: 4, fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.bodyMd, color: Colors.onSurface, width: 70, textAlign: 'right',
+    fontSize: FontSize.bodyMd, color: C.onSurface, width: 70, textAlign: 'right',
   },
-  budgetCurrency: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  saveBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
-  saveBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
+  budgetCurrency: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  saveBtn: { backgroundColor: C.primary, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
+  saveBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onPrimary },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  progressTrack: { flex: 1, height: 6, backgroundColor: Colors.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden' },
+  progressTrack: { flex: 1, height: 6, backgroundColor: C.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 3 },
-  progressPct: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, width: 36, textAlign: 'right' },
+  progressPct: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, width: 36, textAlign: 'right' },
   overBudgetBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    marginTop: Spacing.sm, backgroundColor: `${Colors.tertiary}15`,
+    marginTop: Spacing.sm, backgroundColor: `${C.tertiary}15`,
     borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4, alignSelf: 'flex-start',
   },
-  overBudgetText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.tertiary },
+  overBudgetText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.tertiary },
   statsRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   statCard: {
     flex: 1, borderRadius: BorderRadius.xl,
     padding: Spacing.md, alignItems: 'center', gap: 3,
   },
-  statValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface, textAlign: 'center' },
-  statValueGreen: { color: Colors.primary },
-  statLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, marginTop: 2, textAlign: 'center' },
+  statValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface, textAlign: 'center' },
+  statValueGreen: { color: C.primary },
+  statLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, marginTop: 2, textAlign: 'center' },
   section: { paddingHorizontal: Spacing.lg },
-  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.onSurface, marginBottom: Spacing.sm },
+  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: C.onSurface, marginBottom: Spacing.sm },
   dayCard: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl,
     padding: Spacing.md, marginBottom: Spacing.xs,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
     borderLeftWidth: 3, borderLeftColor: 'transparent',
   },
-  dayCardActive: { borderLeftColor: Colors.primary },
+  dayCardActive: { borderLeftColor: C.primary },
   dayHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  dayLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  dayTotal: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  dayTotalActive: { fontFamily: FontFamily.bodyBold, color: Colors.primary },
+  dayLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  dayTotal: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  dayTotalActive: { fontFamily: FontFamily.bodyBold, color: C.primary },
   mealLine: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
-  mealLineLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, width: 40 },
-  mealLineName: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurface, flex: 1, marginHorizontal: Spacing.xs },
-  mealLineCost: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
-  noPlan: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.outlineVariant, fontStyle: 'italic' },
+  mealLineLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, width: 40 },
+  mealLineName: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurface, flex: 1, marginHorizontal: Spacing.xs },
+  mealLineCost: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
+  noPlan: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.outlineVariant, fontStyle: 'italic' },
+
+  historyEmpty: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl },
+  historyEmptyText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.outlineVariant },
+  historyCard: {
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl,
+    padding: Spacing.md, marginBottom: Spacing.xs,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
+  },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+  historyWeek: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  historyRight: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  historyAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.primary },
+  historyLimit: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  historyBar: { height: 5, backgroundColor: C.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden' },
+  historyBarFill: { height: '100%', borderRadius: 3 },
 });

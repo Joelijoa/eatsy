@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -14,6 +15,7 @@ import { RootStackParamList } from '../../types';
 type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'ForgotPassword'> };
 
 export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
+  const Colors = useColors();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -30,6 +32,8 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
       setLoading(false);
     }
   };
+
+  const styles = createStyles(Colors);
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -72,32 +76,32 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  flex: { flex: 1, backgroundColor: C.surface },
   container: { flex: 1, padding: Spacing.lg, paddingTop: Spacing.xl },
   backBtn: { marginBottom: Spacing.xl },
-  backText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.primary },
+  backText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
   icon: {
     width: 80, height: 80, borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.primaryFixed, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.primaryFixed, alignItems: 'center', justifyContent: 'center',
     marginBottom: Spacing.lg,
   },
   iconText: { fontSize: 36 },
-  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: Colors.onSurface, marginBottom: Spacing.sm },
-  desc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, lineHeight: 22, marginBottom: Spacing.xl },
+  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: C.onSurface, marginBottom: Spacing.sm },
+  desc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, lineHeight: 22, marginBottom: Spacing.xl },
   card: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
-    padding: Spacing.xl, shadowColor: Colors.onSurface, shadowOffset: { width: 0, height: 8 },
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    padding: Spacing.xl, shadowColor: C.onSurface, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06, shadowRadius: 24, elevation: 3,
   },
   successCard: {
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
     padding: Spacing.xl, alignItems: 'center',
-    shadowColor: Colors.onSurface, shadowOffset: { width: 0, height: 8 },
+    shadowColor: C.onSurface, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06, shadowRadius: 24, elevation: 3,
   },
   successEmoji: { fontSize: 48, marginBottom: Spacing.md },
-  successTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.headlineMd, color: Colors.onSurface, marginBottom: Spacing.xs },
-  successDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, textAlign: 'center', marginBottom: Spacing.xl },
+  successTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.headlineMd, color: C.onSurface, marginBottom: Spacing.xs },
+  successDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, textAlign: 'center', marginBottom: Spacing.xl },
   btn: { marginTop: Spacing.sm },
 });

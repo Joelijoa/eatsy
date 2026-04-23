@@ -133,3 +133,14 @@ export const getWeekStart = (date: Date = new Date()): string => {
   d.setDate(diff);
   return d.toISOString().split('T')[0];
 };
+
+export const getPastWeekPlans = async (userId: string, count = 4): Promise<WeekPlan[]> => {
+  const currentWeekStart = getWeekStart();
+  const q = query(collection(db, 'weekPlans'), where('userId', '==', userId));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ ...d.data(), id: d.id } as WeekPlan))
+    .filter((p) => p.weekStart < currentWeekStart)
+    .sort((a, b) => b.weekStart.localeCompare(a.weekStart))
+    .slice(0, count);
+};

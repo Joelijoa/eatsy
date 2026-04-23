@@ -1,15 +1,16 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Modal, TextInput, Alert, ScrollView,
+  Modal, TextInput, Alert, ScrollView, Animated,
 } from 'react-native';
+import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences } from '../../context/PreferencesContext';
+import { usePreferences , useColors } from '../../context/PreferencesContext';
 import { HeaderActions } from '../../components/HeaderActions';
 import {
   getPantryItems, addOrMergePantryItem,
@@ -25,6 +26,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { t } = usePreferences();
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
 
   const [items, setItems] = useState<PantryItem[]>([]);
   const [search, setSearch] = useState('');
@@ -110,8 +112,11 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
+  const styles = createStyles(Colors);
+  const { opacity, translateY } = useScreenEntrance();
+
   return (
-    <View style={styles.screen}>
+    <Animated.View style={[styles.screen, { opacity, transform: [{ translateY }] }]}>
       {/* Header */}
       <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerDecor} />
@@ -285,14 +290,14 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
   headerBand: {
-    backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg,
+    backgroundColor: C.primary, paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg + 16, overflow: 'hidden',
     borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
@@ -308,10 +313,10 @@ const styles = StyleSheet.create({
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
     marginHorizontal: Spacing.lg, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm,
   },
-  searchInput: { flex: 1, paddingVertical: 10, fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  searchInput: { flex: 1, paddingVertical: 10, fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurface },
 
   list: { paddingHorizontal: Spacing.lg, paddingBottom: 100 },
 
@@ -320,48 +325,48 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', gap: 3,
     borderRadius: BorderRadius.xl, padding: Spacing.md,
   },
-  summaryValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.onSurface },
-  summaryLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.onSurfaceVariant, textAlign: 'center' },
+  summaryValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
+  summaryLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, textAlign: 'center' },
 
   itemRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: 13, backgroundColor: Colors.surfaceContainerLowest,
+    paddingVertical: 13, backgroundColor: C.surfaceContainerLowest,
   },
-  itemRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.surfaceContainerHigh },
-  itemIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center' },
+  itemRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
+  itemIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center' },
   itemContent: { flex: 1 },
-  itemName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  itemQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.primary, marginTop: 1 },
+  itemName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  itemQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.primary, marginTop: 1 },
   itemEditBtn: { padding: 6 },
   itemDeleteBtn: { padding: 6 },
 
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.sm },
-  emptyIconWrap: { width: 80, height: 80, borderRadius: 40, backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xs },
-  emptyTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.onSurface },
-  emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant, textAlign: 'center', lineHeight: 22 },
-  emptyAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm, backgroundColor: Colors.primary, paddingHorizontal: Spacing.xl, paddingVertical: 13, borderRadius: BorderRadius.full },
-  emptyAddBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  emptyIconWrap: { width: 80, height: 80, borderRadius: 40, backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xs },
+  emptyTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onSurface },
+  emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, textAlign: 'center', lineHeight: 22 },
+  emptyAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm, backgroundColor: C.primary, paddingHorizontal: Spacing.xl, paddingVertical: 13, borderRadius: BorderRadius.full },
+  emptyAddBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
 
-  fab: { position: 'absolute', right: Spacing.lg, width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+  fab: { position: 'absolute', right: Spacing.lg, width: 52, height: 52, borderRadius: 26, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: Colors.surfaceContainerLowest, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
-  modalHandle: { width: 36, height: 4, backgroundColor: Colors.outlineVariant, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg },
-  modalTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.onSurface, marginBottom: Spacing.lg },
+  modalSheet: { backgroundColor: C.surfaceContainerLowest, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
+  modalHandle: { width: 36, height: 4, backgroundColor: C.outlineVariant, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg },
+  modalTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onSurface, marginBottom: Spacing.lg },
   inputGroup: { marginBottom: Spacing.md },
-  inputLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginBottom: 6 },
-  textInput: { backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl, paddingHorizontal: Spacing.md, paddingVertical: 12, fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  inputLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginBottom: 6 },
+  textInput: { backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl, paddingHorizontal: Spacing.md, paddingVertical: 12, fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurface },
   inputRow: { flexDirection: 'row', gap: Spacing.sm },
-  unitChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: BorderRadius.full, backgroundColor: Colors.surfaceContainerHigh },
-  unitChipActive: { backgroundColor: Colors.primary },
-  unitChipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant },
-  unitChipTextActive: { color: Colors.onPrimary },
-  editHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: Spacing.md, backgroundColor: `${Colors.primary}08`, borderRadius: BorderRadius.lg, padding: Spacing.sm },
-  editHintText: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant },
+  unitChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: BorderRadius.full, backgroundColor: C.surfaceContainerHigh },
+  unitChipActive: { backgroundColor: C.primary },
+  unitChipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: C.onSurfaceVariant },
+  unitChipTextActive: { color: C.onPrimary },
+  editHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: Spacing.md, backgroundColor: `${C.primary}08`, borderRadius: BorderRadius.lg, padding: Spacing.sm },
+  editHintText: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
   modalActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
-  modalCancelBtn: { flex: 1, paddingVertical: 13, borderRadius: BorderRadius.full, backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center' },
-  modalCancelText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
-  modalSaveBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 13, borderRadius: BorderRadius.full, backgroundColor: Colors.primary },
+  modalCancelBtn: { flex: 1, paddingVertical: 13, borderRadius: BorderRadius.full, backgroundColor: C.surfaceContainerHigh, alignItems: 'center' },
+  modalCancelText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  modalSaveBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 13, borderRadius: BorderRadius.full, backgroundColor: C.primary },
   modalSaveBtnDisabled: { opacity: 0.4 },
-  modalSaveText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  modalSaveText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
 });

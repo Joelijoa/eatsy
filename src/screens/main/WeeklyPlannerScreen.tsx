@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Modal, FlatList, TextInput,
+  TouchableOpacity, Modal, FlatList, TextInput, Animated,
 } from 'react-native';
+import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences } from '../../context/PreferencesContext';
+import { usePreferences , useColors } from '../../context/PreferencesContext';
 import { getOrCreateWeekPlan, updateMealSlot, getWeekStart } from '../../services/plannerService';
 import { getRecipes, calculateRecipeCost } from '../../services/recipeService';
 import { WeekPlan, Recipe, MealType, WellnessType } from '../../types';
@@ -29,6 +30,7 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
   const { user } = useAuth();
   const { t, formatCurrency } = usePreferences();
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
   const [plan, setPlan] = useState<WeekPlan | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedDay, setSelectedDay] = useState(
@@ -38,6 +40,7 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
   const [pickerTarget, setPickerTarget] = useState<{ dayKey: keyof WeekPlan['days']; meal: MealType } | null>(null);
   const [customName, setCustomName] = useState('');
   const [customWellness, setCustomWellness] = useState<WellnessType>('balanced');
+  const [recipeSearch, setRecipeSearch] = useState('');
 
   useEffect(() => { loadData(); }, [user]);
 
@@ -55,6 +58,7 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
     setPickerTarget({ dayKey, meal });
     setCustomName('');
     setCustomWellness('balanced');
+    setRecipeSearch('');
     setPickerVisible(true);
   };
 
@@ -130,10 +134,23 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
     return 'moon-outline';
   };
 
-  const DAY_LABELS_SHORT = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  const DAY_KEYS_SHORT = [
+    'planner_day_short_mon','planner_day_short_tue','planner_day_short_wed',
+    'planner_day_short_thu','planner_day_short_fri','planner_day_short_sat','planner_day_short_sun',
+  ];
+  const DAY_FULL_KEYS = [
+    'planner_day_mon','planner_day_tue','planner_day_wed',
+    'planner_day_thu','planner_day_fri','planner_day_sat','planner_day_sun',
+  ];
+  const filteredRecipes = recipes.filter((r) =>
+    r.name.toLowerCase().includes(recipeSearch.toLowerCase()),
+  );
+
+  const styles = createStyles(Colors);
+  const { opacity, translateY } = useScreenEntrance();
 
   return (
-    <View style={styles.screen}>
+    <Animated.View style={[styles.screen, { opacity, transform: [{ translateY }] }]}>
       {/* Header */}
       <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerDecor} />
@@ -169,7 +186,7 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
               activeOpacity={0.8}
             >
               <Text style={[styles.dayChipLetter, isSelected && styles.dayChipTextActive]}>
-                {DAY_LABELS_SHORT[idx]}
+                {t(DAY_KEYS_SHORT[idx])}
               </Text>
               <Text style={[styles.dayChipDate, isSelected && styles.dayChipTextActive]}>
                 {date.getDate()}
@@ -188,11 +205,9 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
       {/* Day header bar */}
       <View style={styles.dayHeaderBar}>
         <View style={styles.dayHeaderLeft}>
-          <Text style={styles.dayHeaderName}>
-            {['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'][selectedDay]}
-          </Text>
+          <Text style={styles.dayHeaderName}>{t(DAY_FULL_KEYS[selectedDay])}</Text>
           {selectedDay === todayIdx && (
-            <View style={styles.todayBadge}><Text style={styles.todayBadgeText}>Aujourd'hui</Text></View>
+            <View style={styles.todayBadge}><Text style={styles.todayBadgeText}>{t('planner_today')}</Text></View>
           )}
         </View>
         {dayTotal > 0 && (
@@ -269,7 +284,7 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
 
             {/* ── Free text entry ── */}
             <View style={styles.customSection}>
-              <Text style={styles.customSectionLabel}>Saisir un repas libre</Text>
+              <Text style={styles.customSectionLabel}>{t('planner_custom_meal')}</Text>
               <View style={styles.customInputRow}>
                 <TextInput
                   style={styles.customInput}
@@ -309,19 +324,36 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
               </View>
             </View>
 
-            {/* ── Divider ── */}
+            {/* ── Divider + search ── */}
             {recipes.length > 0 && (
-              <View style={styles.orDivider}>
-                <View style={styles.orLine} />
-                <Text style={styles.orText}>ou choisir une recette</Text>
-                <View style={styles.orLine} />
-              </View>
+              <>
+                <View style={styles.orDivider}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>{t('planner_or_recipe')}</Text>
+                  <View style={styles.orLine} />
+                </View>
+                <View style={styles.recipeSearchBar}>
+                  <Ionicons name="search-outline" size={15} color={Colors.outline} />
+                  <TextInput
+                    style={styles.recipeSearchInput}
+                    value={recipeSearch}
+                    onChangeText={setRecipeSearch}
+                    placeholder={t('planner_search_recipe')}
+                    placeholderTextColor={Colors.outline}
+                  />
+                  {recipeSearch ? (
+                    <TouchableOpacity onPress={() => setRecipeSearch('')}>
+                      <Ionicons name="close-circle" size={15} color={Colors.outline} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </>
             )}
 
             {/* ── Recipe list ── */}
             {recipes.length > 0 && (
               <FlatList
-                data={recipes}
+                data={filteredRecipes}
                 keyExtractor={(r) => r.id}
                 showsVerticalScrollIndicator={false}
                 style={styles.recipeList}
@@ -358,14 +390,14 @@ export const WeeklyPlannerScreen: React.FC<{ navigation: any }> = ({ navigation 
           </View>
         </View>
       </Modal>
-    </View>
+    </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
   headerBand: {
-    backgroundColor: Colors.primary,
+    backgroundColor: C.primary,
     paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg + 16, overflow: 'hidden',
     borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
   },
@@ -387,44 +419,44 @@ const styles = StyleSheet.create({
   dayRow: { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.xs },
   dayChip: {
     flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.surfaceContainerHigh, height: 74, justifyContent: 'center',
+    backgroundColor: C.surfaceContainerHigh, height: 74, justifyContent: 'center',
   },
-  dayChipActive: { backgroundColor: Colors.primary },
-  dayChipLetter: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: Colors.onSurfaceVariant },
-  dayChipDate: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: Colors.onSurface, marginVertical: 1 },
-  dayChipTextActive: { color: Colors.onPrimary },
-  todayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.primary, marginTop: 2 },
+  dayChipActive: { backgroundColor: C.primary },
+  dayChipLetter: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onSurfaceVariant },
+  dayChipDate: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.onSurface, marginVertical: 1 },
+  dayChipTextActive: { color: C.onPrimary },
+  todayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.primary, marginTop: 2 },
   mealCountBadge: {
     marginTop: 3, width: 18, height: 18, borderRadius: 9,
-    backgroundColor: Colors.surfaceContainerLowest, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.outlineVariant,
+    backgroundColor: C.surfaceContainerLowest, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: C.outlineVariant,
   },
   mealCountBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)', borderColor: 'rgba(255,255,255,0.5)' },
-  mealCountText: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: Colors.onSurfaceVariant },
-  mealCountTextActive: { color: Colors.onPrimary },
+  mealCountText: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: C.onSurfaceVariant },
+  mealCountTextActive: { color: C.onPrimary },
 
   dayHeaderBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs, marginBottom: 4,
   },
   dayHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  dayHeaderName: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.onSurface },
+  dayHeaderName: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: C.onSurface },
   todayBadge: {
-    backgroundColor: `${Colors.primary}12`, borderRadius: BorderRadius.full,
+    backgroundColor: `${C.primary}12`, borderRadius: BorderRadius.full,
     paddingHorizontal: 8, paddingVertical: 2,
   },
-  todayBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: Colors.primary },
+  todayBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: C.primary },
   dayCostChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: `${Colors.primary}10`, borderRadius: BorderRadius.full,
+    backgroundColor: `${C.primary}10`, borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm, paddingVertical: 5,
   },
-  dayCostText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.primary },
+  dayCostText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
 
   mealsScroll: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
   mealCard: {
     flexDirection: 'row',
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl,
     marginBottom: Spacing.sm, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
@@ -433,83 +465,93 @@ const styles = StyleSheet.create({
   mealCardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.sm },
   mealIconCircle: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
-  mealTypeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface, flex: 1 },
+  mealTypeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, flex: 1 },
   filledSlot: { flexDirection: 'row', alignItems: 'center' },
   filledSlotContent: { flex: 1 },
-  filledName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
-  filledCost: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.onSurfaceVariant, marginTop: 2 },
+  filledName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  filledCost: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 2 },
   emptySlot: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm,
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.lg,
   },
   emptySlotIcon: {
     width: 24, height: 24, borderRadius: 12,
-    backgroundColor: `${Colors.primary}15`, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${C.primary}15`, alignItems: 'center', justifyContent: 'center',
   },
-  emptySlotText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: Colors.primary },
+  emptySlotText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: C.primary },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: Colors.surfaceContainerLowest,
+    backgroundColor: C.surfaceContainerLowest,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, maxHeight: '75%',
   },
-  modalHandle: { width: 36, height: 4, backgroundColor: Colors.outlineVariant, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg },
-  modalTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: Colors.onSurface, marginBottom: Spacing.md },
+  modalHandle: { width: 36, height: 4, backgroundColor: C.outlineVariant, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg },
+  modalTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onSurface, marginBottom: Spacing.md },
   noRecipesWrap: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm },
-  noRecipesText: { fontFamily: FontFamily.body, color: Colors.onSurfaceVariant, textAlign: 'center' },
-  modalSep: { height: 1, backgroundColor: Colors.surfaceContainerHigh },
+  noRecipesText: { fontFamily: FontFamily.body, color: C.onSurfaceVariant, textAlign: 'center' },
+  modalSep: { height: 1, backgroundColor: C.surfaceContainerHigh },
   recipePickerRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md,
     gap: Spacing.sm,
   },
   recipePickerWellness: { width: 4, height: 40, borderRadius: 2 },
   recipePickerContent: { flex: 1 },
-  recipePickerName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface },
+  recipePickerName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
   recipePickerMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  recipePickerMetaText: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant },
-  recipePickerMetaDot: { color: Colors.outlineVariant, fontSize: 10 },
-  recipePickerCost: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: Colors.primary },
-  cancelBtn: { marginTop: Spacing.md, backgroundColor: Colors.surfaceContainerHigh, borderRadius: BorderRadius.full, padding: Spacing.md, alignItems: 'center' },
-  cancelText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },
+  recipePickerMetaText: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: C.onSurfaceVariant },
+  recipePickerMetaDot: { color: C.outlineVariant, fontSize: 10 },
+  recipePickerCost: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: C.primary },
+  cancelBtn: { marginTop: Spacing.md, backgroundColor: C.surfaceContainerHigh, borderRadius: BorderRadius.full, padding: Spacing.md, alignItems: 'center' },
+  cancelText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
 
   // Custom meal entry
   customSection: {
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.xl,
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
     padding: Spacing.md, marginBottom: Spacing.sm,
   },
   customSectionLabel: {
     fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd,
-    color: Colors.onSurfaceVariant, marginBottom: Spacing.sm,
+    color: C.onSurfaceVariant, marginBottom: Spacing.sm,
   },
   customInputRow: { flexDirection: 'row', gap: Spacing.xs, alignItems: 'center' },
   customInput: {
-    flex: 1, backgroundColor: Colors.surfaceContainerLowest,
+    flex: 1, backgroundColor: C.surfaceContainerLowest,
     borderRadius: BorderRadius.xl, paddingHorizontal: Spacing.md, paddingVertical: 11,
-    fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: Colors.onSurface,
+    fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurface,
   },
   customConfirmBtn: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
   },
-  customConfirmBtnDisabled: { backgroundColor: Colors.surfaceContainerHigh },
+  customConfirmBtnDisabled: { backgroundColor: C.surfaceContainerHigh },
   customWellnessRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
   customWellnessChip: {
     flex: 1, alignItems: 'center', paddingVertical: 7,
     borderRadius: BorderRadius.full, borderWidth: 1.5,
-    borderColor: Colors.outlineVariant, backgroundColor: 'transparent',
+    borderColor: C.outlineVariant, backgroundColor: 'transparent',
   },
   customWellnessText: {
-    fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant,
+    fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.onSurfaceVariant,
   },
 
   // Or divider
   orDivider: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginVertical: Spacing.sm },
-  orLine: { flex: 1, height: 1, backgroundColor: Colors.surfaceContainerHigh },
-  orText: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: Colors.onSurfaceVariant },
+  orLine: { flex: 1, height: 1, backgroundColor: C.surfaceContainerHigh },
+  orText: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: C.onSurfaceVariant },
+
+  recipeSearchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.sm, marginBottom: Spacing.sm,
+  },
+  recipeSearchInput: {
+    flex: 1, paddingVertical: 9, fontFamily: FontFamily.body,
+    fontSize: FontSize.bodyMd, color: C.onSurface,
+  },
 
   recipeList: { maxHeight: 240 },
 });

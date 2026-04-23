@@ -1,11 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { signOut } from 'firebase/auth';
+import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences } from '../../context/PreferencesContext';
+import { usePreferences , useColors } from '../../context/PreferencesContext';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 
@@ -13,8 +13,20 @@ type Props = { navigation: any };
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
   const { user } = useAuth();
   const { t } = usePreferences();
+
+  const [pwdModal, setPwdModal] = useState(false);
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdErrors, setPwdErrors] = useState<Record<string, string>>({});
+
+  const styles = createStyles(Colors);
 
   const initials = user?.displayName
     ? user.displayName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -23,6 +35,39 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const memberSince = user?.metadata?.creationTime
     ? new Date(user.metadata.creationTime).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' })
     : '—';
+
+  const openPwdModal = () => {
+    setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+    setPwdErrors({}); setShowCurrent(false); setShowNew(false);
+    setPwdModal(true);
+  };
+
+  const handleChangePassword = async () => {
+    const errs: Record<string, string> = {};
+    if (!currentPwd) errs.current = 'Mot de passe actuel requis';
+    if (!newPwd) errs.new = 'Nouveau mot de passe requis';
+    else if (newPwd.length < 6) errs.new = 'Au moins 6 caractères';
+    if (newPwd !== confirmPwd) errs.confirm = 'Les mots de passe ne correspondent pas';
+    if (Object.keys(errs).length) { setPwdErrors(errs); return; }
+
+    if (!user?.email) return;
+    setPwdLoading(true);
+    try {
+      const cred = EmailAuthProvider.credential(user.email, currentPwd);
+      await reauthenticateWithCredential(user, cred);
+      await updatePassword(user, newPwd);
+      setPwdModal(false);
+      Alert.alert('Succès', 'Votre mot de passe a été modifié.');
+    } catch (err: any) {
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setPwdErrors({ current: 'Mot de passe actuel incorrect' });
+      } else {
+        Alert.alert('Erreur', err.message ?? 'Impossible de modifier le mot de passe');
+      }
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(t('settings_logout'), t('settings_logout_confirm'), [
@@ -98,6 +143,21 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
 
+        {/* Security */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Sécurité</Text>
+          <TouchableOpacity style={styles.actionRow} onPress={openPwdModal}>
+            <View style={[styles.actionIcon, { backgroundColor: `${Colors.primary}12` }]}>
+              <Ionicons name="lock-closed-outline" size={18} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionLabel}>Modifier le mot de passe</Text>
+              <Text style={styles.actionSub}>Mettre à jour votre mot de passe</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.outlineVariant} />
+          </TouchableOpacity>
+        </View>
+
         {/* Actions */}
         <View style={styles.card}>
           <TouchableOpacity
@@ -120,15 +180,95 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Change password modal */}
+      <Modal visible={pwdModal} animationType="slide" transparent onRequestClose={() => setPwdModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIcon, { backgroundColor: `${Colors.primary}12` }]}>
+                <Ionicons name="lock-closed-outline" size={22} color={Colors.primary} />
+              </View>
+              <Text style={styles.modalTitle}>Modifier le mot de passe</Text>
+            </View>
+
+            {/* Current password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Mot de passe actuel</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.textInput, { flex: 1 }, pwdErrors.current && styles.inputError]}
+                  value={currentPwd}
+                  onChangeText={(v) => { setCurrentPwd(v); setPwdErrors((e) => ({ ...e, current: '' })); }}
+                  secureTextEntry={!showCurrent}
+                  placeholder="••••••••"
+                  placeholderTextColor={Colors.outline}
+                  autoFocus
+                />
+                <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowCurrent((v) => !v)}>
+                  <Ionicons name={showCurrent ? 'eye-off-outline' : 'eye-outline'} size={18} color={Colors.outline} />
+                </TouchableOpacity>
+              </View>
+              {pwdErrors.current ? <Text style={styles.errorText}>{pwdErrors.current}</Text> : null}
+            </View>
+
+            {/* New password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nouveau mot de passe</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.textInput, { flex: 1 }, pwdErrors.new && styles.inputError]}
+                  value={newPwd}
+                  onChangeText={(v) => { setNewPwd(v); setPwdErrors((e) => ({ ...e, new: '', confirm: '' })); }}
+                  secureTextEntry={!showNew}
+                  placeholder="Min. 6 caractères"
+                  placeholderTextColor={Colors.outline}
+                />
+                <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowNew((v) => !v)}>
+                  <Ionicons name={showNew ? 'eye-off-outline' : 'eye-outline'} size={18} color={Colors.outline} />
+                </TouchableOpacity>
+              </View>
+              {pwdErrors.new ? <Text style={styles.errorText}>{pwdErrors.new}</Text> : null}
+            </View>
+
+            {/* Confirm password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Confirmer le nouveau mot de passe</Text>
+              <TextInput
+                style={[styles.textInput, pwdErrors.confirm && styles.inputError]}
+                value={confirmPwd}
+                onChangeText={(v) => { setConfirmPwd(v); setPwdErrors((e) => ({ ...e, confirm: '' })); }}
+                secureTextEntry
+                placeholder="••••••••"
+                placeholderTextColor={Colors.outline}
+              />
+              {pwdErrors.confirm ? <Text style={styles.errorText}>{pwdErrors.confirm}</Text> : null}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setPwdModal(false)} disabled={pwdLoading}>
+                <Text style={styles.cancelBtnText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleChangePassword} disabled={pwdLoading}>
+                {pwdLoading
+                  ? <ActivityIndicator size="small" color={Colors.onPrimary} />
+                  : <><Ionicons name="checkmark" size={18} color={Colors.onPrimary} /><Text style={styles.saveBtnText}>Enregistrer</Text></>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.surface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.surface },
 
   headerBand: {
-    backgroundColor: Colors.primary,
+    backgroundColor: C.primary,
     borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
     paddingBottom: Spacing.xl + 8,
     overflow: 'hidden',
@@ -174,31 +314,31 @@ const styles = StyleSheet.create({
 
   card: {
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
-    backgroundColor: Colors.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
     padding: Spacing.lg,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
   },
   cardTitle: {
     fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd,
-    color: Colors.onSurface, marginBottom: Spacing.md,
+    color: C.onSurface, marginBottom: Spacing.md,
   },
 
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: 6 },
   infoIcon: {
     width: 34, height: 34, borderRadius: 17,
-    backgroundColor: `${Colors.primary}10`, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: `${C.primary}10`, alignItems: 'center', justifyContent: 'center',
   },
   infoText: { flex: 1 },
   infoLabel: {
     fontFamily: FontFamily.body, fontSize: FontSize.labelMd,
-    color: Colors.onSurfaceVariant,
+    color: C.onSurfaceVariant,
   },
   infoValue: {
     fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd,
-    color: Colors.onSurface, marginTop: 1,
+    color: C.onSurface, marginTop: 1,
   },
-  sep: { height: 1, backgroundColor: Colors.surfaceContainerHigh, marginVertical: 4 },
+  sep: { height: 1, backgroundColor: C.surfaceContainerHigh, marginVertical: 4 },
 
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: 10 },
   actionIcon: {
@@ -206,6 +346,46 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   actionLabel: {
-    flex: 1, fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onSurface,
+    flex: 1, fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface,
   },
+  actionSub: {
+    fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 1,
+  },
+
+  /* Password modal */
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: C.surfaceContainerLowest,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm,
+  },
+  modalHandle: {
+    width: 36, height: 4, backgroundColor: C.outlineVariant,
+    borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.lg,
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.lg },
+  modalIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  modalTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onSurface },
+  inputGroup: { marginBottom: Spacing.md },
+  inputLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginBottom: 6 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  textInput: {
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
+    fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurface,
+  },
+  inputError: { borderWidth: 1.5, borderColor: C.error },
+  eyeBtn: { padding: 6 },
+  errorText: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.error, marginTop: 4 },
+  modalActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
+  cancelBtn: {
+    flex: 1, paddingVertical: 13, borderRadius: BorderRadius.full,
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center',
+  },
+  cancelBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  saveBtn: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 13, borderRadius: BorderRadius.full, backgroundColor: C.primary,
+  },
+  saveBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
 });

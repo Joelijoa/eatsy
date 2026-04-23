@@ -6,8 +6,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { useColors } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { getRecipe } from '../../services/recipeService';
+import { deductRecipeFromPantry } from '../../services/pantryService';
+import { useAuth } from '../../context/AuthContext';
+import { usePreferences } from '../../context/PreferencesContext';
 import { Recipe } from '../../types';
 
 type Props = { navigation: any; route: any };
@@ -21,7 +25,11 @@ const PRESET_TIMERS = [
 
 export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { recipeId } = route.params;
+  const { user } = useAuth();
+  const { t } = usePreferences();
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
+  const styles = createStyles(Colors);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -144,9 +152,30 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
             <TouchableOpacity
               style={styles.finishBtn}
               activeOpacity={0.8}
-              onPress={() => Alert.alert('Bon appétit !', 'La recette est terminée.', [
-                { text: 'Terminer', onPress: () => navigation.goBack() },
-              ])}
+              onPress={() => {
+                if (!user || !recipe?.ingredients?.length) {
+                  Alert.alert(t('cooking_deduct_title'), 'La recette est terminée.', [
+                    { text: t('cooking_deduct_no'), onPress: () => navigation.goBack() },
+                  ]);
+                  return;
+                }
+                Alert.alert(
+                  t('cooking_deduct_title'),
+                  t('cooking_deduct_question'),
+                  [
+                    { text: t('cooking_deduct_no'), style: 'cancel', onPress: () => navigation.goBack() },
+                    {
+                      text: t('cooking_deduct_yes'),
+                      onPress: async () => {
+                        try {
+                          await deductRecipeFromPantry(user.uid, recipe.ingredients);
+                        } catch {}
+                        navigation.goBack();
+                      },
+                    },
+                  ],
+                );
+              }}
             >
               <Ionicons name="checkmark-circle" size={20} color={Colors.onPrimary} />
               <Text style={styles.finishBtnText}>Terminer</Text>
@@ -225,10 +254,10 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.inverseSurface },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.inverseSurface, gap: Spacing.sm },
-  loadingText: { fontFamily: FontFamily.body, color: Colors.inverseOnSurface },
+const createStyles = (C: typeof Colors) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.inverseSurface },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.inverseSurface, gap: Spacing.sm },
+  loadingText: { fontFamily: FontFamily.body, color: C.inverseOnSurface },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -239,16 +268,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center',
   },
   headerCenter: { flex: 1 },
-  recipeName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.inverseOnSurface },
-  stepSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: Colors.inversePrimary, marginTop: 2 },
+  recipeName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.inverseOnSurface },
+  stepSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.inversePrimary, marginTop: 2 },
   stepPill: {
     backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm, paddingVertical: 4,
   },
-  stepPillText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.inverseOnSurface },
+  stepPillText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.inverseOnSurface },
 
   progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.12)', marginHorizontal: Spacing.lg, borderRadius: 2, marginBottom: Spacing.md },
-  progressFill: { height: '100%', backgroundColor: Colors.inversePrimary, borderRadius: 2 },
+  progressFill: { height: '100%', backgroundColor: C.inversePrimary, borderRadius: 2 },
 
   content: { flex: 1 },
 
@@ -259,17 +288,17 @@ const styles = StyleSheet.create({
   },
   stepBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.md },
   stepBadge: {
-    backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
+    backgroundColor: C.primary, borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md, paddingVertical: 5,
   },
-  stepBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.onPrimary },
+  stepBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onPrimary },
   lastBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm, paddingVertical: 4,
   },
-  lastBadgeText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: Colors.inversePrimary },
-  stepText: { fontFamily: FontFamily.headlineRegular, fontSize: FontSize.headlineSm, color: Colors.inverseOnSurface, lineHeight: 28 },
+  lastBadgeText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: C.inversePrimary },
+  stepText: { fontFamily: FontFamily.headlineRegular, fontSize: FontSize.headlineSm, color: C.inverseOnSurface, lineHeight: 28 },
 
   navRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   navBtn: {
@@ -277,17 +306,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: BorderRadius.full, paddingVertical: 14,
   },
   navBtnDisabled: { opacity: 0.3 },
-  navBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inverseOnSurface },
+  navBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.inverseOnSurface },
   navBtnNext: {
     flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
-    backgroundColor: Colors.primary, borderRadius: BorderRadius.full, paddingVertical: 14,
+    backgroundColor: C.primary, borderRadius: BorderRadius.full, paddingVertical: 14,
   },
-  navBtnNextText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  navBtnNextText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
   finishBtn: {
     flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: Colors.primaryContainer, borderRadius: BorderRadius.full, paddingVertical: 14,
+    backgroundColor: C.primaryContainer, borderRadius: BorderRadius.full, paddingVertical: 14,
   },
-  finishBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  finishBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
 
   timerCard: {
     marginHorizontal: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.06)',
@@ -295,31 +324,31 @@ const styles = StyleSheet.create({
     alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
   },
   timerHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.xs },
-  timerTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inversePrimary },
-  timerDisplay: { fontFamily: FontFamily.headlineBold, fontSize: 54, color: Colors.inverseOnSurface, letterSpacing: 6, marginBottom: Spacing.md },
+  timerTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.inversePrimary },
+  timerDisplay: { fontFamily: FontFamily.headlineBold, fontSize: 54, color: C.inverseOnSurface, letterSpacing: 6, marginBottom: Spacing.md },
   timerPresets: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.md },
   presetBtn: {
     paddingHorizontal: Spacing.md, paddingVertical: 6,
     backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: BorderRadius.full,
   },
-  presetBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: Colors.inverseOnSurface },
+  presetBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.inverseOnSurface },
   timerControls: { flexDirection: 'row', gap: Spacing.sm },
   timerBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
+    backgroundColor: C.primary, borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.xl, paddingVertical: 11,
   },
-  timerBtnActive: { backgroundColor: Colors.tertiary },
-  timerBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.onPrimary },
+  timerBtnActive: { backgroundColor: C.tertiary },
+  timerBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
   resetBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.lg, paddingVertical: 11,
   },
-  resetBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: Colors.inverseOnSurface },
+  resetBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.inverseOnSurface },
 
   overviewSection: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  overviewTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: Colors.inverseOnSurface, marginBottom: Spacing.sm },
+  overviewTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: C.inverseOnSurface, marginBottom: Spacing.sm },
   overviewRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
@@ -330,10 +359,10 @@ const styles = StyleSheet.create({
     width: 28, height: 28, borderRadius: 14, flexShrink: 0,
     backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center',
   },
-  overviewNumActive: { backgroundColor: Colors.primary },
-  overviewNumDone: { backgroundColor: Colors.primaryContainer },
+  overviewNumActive: { backgroundColor: C.primary },
+  overviewNumDone: { backgroundColor: C.primaryContainer },
   overviewNumText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.55)' },
   overviewText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.45)', flex: 1, lineHeight: 20 },
-  overviewTextActive: { color: Colors.inverseOnSurface, fontFamily: FontFamily.bodyMedium },
+  overviewTextActive: { color: C.inverseOnSurface, fontFamily: FontFamily.bodyMedium },
   overviewTextDone: { opacity: 0.4 },
 });

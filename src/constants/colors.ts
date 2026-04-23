@@ -47,3 +47,27 @@ export const Colors = {
   quick: '#924700',
   indulgent: '#ba1a1a',
 };
+
+export const DarkColors: typeof Colors = {
+  ...Colors,
+  surface: '#0f1511',
+  surfaceDim: '#070d09',
+  surfaceBright: '#1a2018',
+  surfaceContainerLowest: '#0a1009',
+  surfaceContainerLow: '#141a12',
+  surfaceContainer: '#181e16',
+  surfaceContainerHigh: '#222921',
+  surfaceContainerHighest: '#2c332a',
+  surfaceVariant: '#2c332a',
+  onSurface: '#dfe4db',
+  onSurfaceVariant: '#bec9b9',
+  onBackground: '#dfe4db',
+  outline: '#899482',
+  outlineVariant: '#3f4a3d',
+  inverseSurface: '#dfe4db',
+  inverseOnSurface: '#2d3329',
+  background: '#0f1511',
+  balanced: '#4ade80',
+  quick: '#fb923c',
+  indulgent: '#f87171',
+};
