@@ -1,16 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, RefreshControl, Animated,
 } from 'react-native';
-import { useScreenEntrance } from '../../hooks/useScreenEntrance';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { useColors } from '../../context/PreferencesContext';
+import { useColors, usePreferences } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences } from '../../context/PreferencesContext';
 import { getPantryItems } from '../../services/pantryService';
 import { getRecipes } from '../../services/recipeService';
 import { getOrCreateWeekPlan, getWeekStart } from '../../services/plannerService';
@@ -20,28 +19,76 @@ import { HeaderActions } from '../../components/HeaderActions';
 
 const MEAL_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   breakfast: 'sunny-outline',
-  lunch: 'partly-sunny-outline',
-  dinner: 'moon-outline',
+  lunch:     'partly-sunny-outline',
+  dinner:    'moon-outline',
 };
 
-const WELLNESS_CONFIG: Record<WellnessType, { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  balanced:  { color: Colors.primary,  bg: `${Colors.secondaryContainer}90`, icon: 'leaf-outline' },
-  quick:     { color: Colors.tertiary, bg: `${Colors.tertiary}22`,            icon: 'flash-outline' },
-  indulgent: { color: Colors.error,    bg: `${Colors.error}18`,               icon: 'heart-outline' },
+const MEAL_COLORS: Record<string, string> = {
+  breakfast: '#D97706',
+  lunch:     '#2563EB',
+  dinner:    '#7C3AED',
 };
+
+const WELLNESS_CFG: Record<WellnessType, { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  balanced:  { color: Colors.primary,  bg: `${Colors.primary}18`,  icon: 'leaf-outline' },
+  quick:     { color: Colors.tertiary, bg: `${Colors.tertiary}18`, icon: 'flash-outline' },
+  indulgent: { color: Colors.error,    bg: `${Colors.error}14`,    icon: 'heart-outline' },
+};
+
+const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+const FR_DAYS   = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const EN_DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const FR_MONTHS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const EN_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const CARD_COUNT = 6;
 
 type Props = { navigation: any };
 
 export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
-  const { t, formatCurrency } = usePreferences();
-  const Colors = useColors();
+  const { t, formatCurrency, language } = usePreferences();
+  const C = useColors();
   const insets = useSafeAreaInsets();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
-  const [pantryCount, setPantryCount] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
 
+  const [recipes,      setRecipes]      = useState<Recipe[]>([]);
+  const [weekPlan,     setWeekPlan]     = useState<WeekPlan | null>(null);
+  const [pantryCount,  setPantryCount]  = useState(0);
+  const [refreshing,   setRefreshing]   = useState(false);
+
+  // ── Animations ──────────────────────────────────────────
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const headerY       = useRef(new Animated.Value(-16)).current;
+  const cardAnims     = useRef(
+    Array.from({ length: CARD_COUNT }, () => ({
+      opacity:    new Animated.Value(0),
+      translateY: new Animated.Value(28),
+    }))
+  ).current;
+  const hasEntered = useRef(false);
+
+  useFocusEffect(useCallback(() => {
+    if (hasEntered.current) return;
+    hasEntered.current = true;
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(screenOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.spring(headerY,       { toValue: 0, useNativeDriver: true, damping: 26, stiffness: 280 }),
+      ]),
+      Animated.stagger(
+        65,
+        cardAnims.map(({ opacity, translateY }) =>
+          Animated.parallel([
+            Animated.timing(opacity,    { toValue: 1,  duration: 260, useNativeDriver: true }),
+            Animated.spring(translateY, { toValue: 0,  useNativeDriver: true, damping: 22, stiffness: 260 }),
+          ])
+        )
+      ),
+    ]).start();
+  }, []));
+
+  // ── Data ────────────────────────────────────────────────
   const loadData = async () => {
     if (!user) return;
     try {
@@ -57,14 +104,13 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => { loadData(); }, [user]);
-
+  useFocusEffect(useCallback(() => { loadData(); }, [user]));
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
 
-  const limit = weekPlan?.weeklyBudgetLimit ?? 120;
-  const dayKeys: Array<keyof WeekPlan['days']> = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-  const mealKeys: Array<keyof DayPlan> = ['breakfast', 'lunch', 'dinner'];
-  const mealKeyIds: Array<keyof DayPlan> = ['breakfast', 'lunch', 'dinner'];
+  // ── Derived ─────────────────────────────────────────────
+  const limit       = weekPlan?.weeklyBudgetLimit ?? 120;
+  const dayKeys: Array<keyof WeekPlan['days']>  = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+  const mealKeys: Array<keyof DayPlan>           = ['breakfast','lunch','dinner'];
 
   const plannedSlots = weekPlan
     ? Object.values(weekPlan.days).flatMap((d) =>
@@ -72,31 +118,29 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       )
     : [];
   const weeklySpend = plannedSlots.reduce((s, m) => s + ((m as any).cost ?? 0), 0);
-  const remaining = Math.max(0, limit - weeklySpend);
-  const pct = limit > 0 ? Math.min(weeklySpend / limit, 1) : 0;
-  const isOver = weeklySpend > limit;
+  const remaining   = Math.max(0, limit - weeklySpend);
+  const pct         = limit > 0 ? Math.min(weeklySpend / limit, 1) : 0;
+  const isOver      = weeklySpend > limit;
 
   const wellnessCounts: Record<WellnessType, number> = { balanced: 0, quick: 0, indulgent: 0 };
-  plannedSlots.forEach((m) => {
-    const ty = (m as any).wellnessType as WellnessType;
-    if (ty) wellnessCounts[ty]++;
-  });
-
-  const totalMeals = wellnessCounts.balanced + wellnessCounts.quick + wellnessCounts.indulgent;
+  plannedSlots.forEach((m) => { const ty = (m as any).wellnessType as WellnessType; if (ty) wellnessCounts[ty]++; });
+  const totalMeals   = wellnessCounts.balanced + wellnessCounts.quick + wellnessCounts.indulgent;
   const wellnessTypes: WellnessType[] = ['balanced', 'quick', 'indulgent'];
-
-  // Variety score: 0–100 based on how spread the wellness types are
-  const maxPossible = Math.max(1, totalMeals);
-  const evenShare = maxPossible / 3;
-  const deviations = wellnessTypes.map((w) => Math.abs(wellnessCounts[w] - evenShare));
+  const evenShare    = Math.max(1, totalMeals) / 3;
   const varietyScore = totalMeals > 0
-    ? Math.max(0, Math.round(100 - (deviations.reduce((s, d) => s + d, 0) / maxPossible) * 100))
+    ? Math.max(0, Math.round(100 - (wellnessTypes.map((w) => Math.abs(wellnessCounts[w] - evenShare)).reduce((s, d) => s + d, 0) / Math.max(1, totalMeals)) * 100))
     : 0;
-
-  // Days with at least one meal
   const daysWithMeals = dayKeys.filter((k) =>
     [weekPlan?.days[k]?.breakfast, weekPlan?.days[k]?.lunch, weekPlan?.days[k]?.dinner].some((m) => m?.recipeId)
   ).length;
+
+  const todayIdx   = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  const todayKey   = dayKeys[todayIdx];
+  const dayTotal   = mealKeys.reduce((s, k) => s + (((weekPlan?.days[todayKey]?.[k]) as any)?.cost ?? 0), 0);
+  const nowHour    = new Date().getHours();
+  const nextMealIdx = nowHour < 10 ? 0 : nowHour < 14 ? 1 : 2;
+  const nextSlot   = weekPlan?.days[todayKey]?.[mealKeys[nextMealIdx]] as any;
+  const mealLabels = [t('meal_breakfast_full'), t('meal_lunch'), t('meal_dinner')];
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -105,237 +149,297 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     return t('dashboard_greeting_evening');
   };
 
-  const todayKey = dayKeys[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-  const dayTotal = mealKeys.reduce((s, k) => {
-    const slot = weekPlan?.days[todayKey]?.[k] as any;
-    return s + (slot?.cost ?? 0);
-  }, 0);
+  const formatDate = () => {
+    const d    = new Date();
+    const isFr = language === 'fr';
+    const day  = (isFr ? FR_DAYS : EN_DAYS)[d.getDay()];
+    const mon  = (isFr ? FR_MONTHS : EN_MONTHS)[d.getMonth()];
+    return isFr
+      ? `${day} ${d.getDate()} ${mon}`
+      : `${day}, ${mon} ${d.getDate()}`;
+  };
 
-  const now = new Date().getHours();
-  const nextMealIdx = now < 10 ? 0 : now < 14 ? 1 : 2;
-  const nextSlot = weekPlan?.days[todayKey]?.[mealKeyIds[nextMealIdx]] as any;
+  const card = (idx: number) => ({
+    opacity:   cardAnims[idx].opacity,
+    transform: [{ translateY: cardAnims[idx].translateY }],
+  });
 
-  const mealLabels = [t('meal_breakfast_full'), t('meal_lunch'), t('meal_dinner')];
-
-  const styles = createStyles(Colors);
-  const { opacity, translateY } = useScreenEntrance();
+  const styles = createStyles(C);
 
   return (
-    <Animated.View style={[styles.screen, { opacity }]}>
-      {/* Header band — même structure que les autres onglets */}
-      <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
-        <View style={styles.headerDecor} />
+    <Animated.View style={[styles.screen, { opacity: screenOpacity }]}>
+
+      {/* ── Hero Header ────────────────────────────────── */}
+      <Animated.View style={[styles.header, { paddingTop: insets.top + 14 }, { transform: [{ translateY: headerY }] }]}>
+        <View style={styles.blobTR} />
+        <View style={styles.blobBL} />
+
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.greeting}>{greeting()}</Text>
-            <Text style={styles.userName}>{user?.displayName?.split(' ')[0] ?? 'Chef'}</Text>
+            <Text style={styles.headerGreeting}>{greeting()}</Text>
+            <Text style={styles.headerName}>{user?.displayName?.split(' ')[0] ?? 'Chef'}</Text>
+            <Text style={styles.headerDate}>{formatDate()}</Text>
           </View>
           <HeaderActions navigation={navigation} />
         </View>
-      </View>
 
-      <Animated.View style={{ flex: 1, transform: [{ translateY }] }}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-        contentContainerStyle={{ paddingTop: Spacing.lg }}
-      >
-        {/* Next meal */}
-        <View style={styles.nextMealCard}>
-          <View style={styles.nextMealLeft}>
-            <Text style={styles.nextMealTag}>{t('dashboard_next_meal')}</Text>
-            <Text style={styles.nextMealName} numberOfLines={1}>
+        {/* Stats row inside header */}
+        <View style={styles.headerStats}>
+          <View style={styles.headerStat}>
+            <Text style={styles.headerStatVal}>{plannedSlots.length}</Text>
+            <Text style={styles.headerStatLbl}>{t('dashboard_meals_label')}</Text>
+          </View>
+          <View style={styles.headerStatDivider} />
+          <View style={styles.headerStat}>
+            <Text style={styles.headerStatVal}>{daysWithMeals}/7</Text>
+            <Text style={styles.headerStatLbl}>{t('dashboard_this_week')}</Text>
+          </View>
+          <View style={styles.headerStatDivider} />
+          <View style={styles.headerStat}>
+            <Text style={styles.headerStatVal}>{recipes.length}</Text>
+            <Text style={styles.headerStatLbl}>{t('dashboard_recipes_count')}</Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* ── Floating Next Meal Card (overlaps header) ── */}
+      <Animated.View style={[styles.nextWrap, card(0)]}>
+        <View style={styles.nextCard}>
+          <View style={[styles.nextAccent, { backgroundColor: MEAL_COLORS[mealKeys[nextMealIdx] as string] }]} />
+          <View style={styles.nextBody}>
+            <Text style={styles.nextTag}>
+              {t('dashboard_next_meal')} · {mealLabels[nextMealIdx]}
+            </Text>
+            <Text style={styles.nextName} numberOfLines={1}>
               {nextSlot?.recipeId ? nextSlot.recipeName : t('dashboard_nothing_planned')}
             </Text>
-            <Text style={styles.nextMealLabel}>{mealLabels[nextMealIdx]}</Text>
+            {nextSlot?.recipeId && (
+              <TouchableOpacity
+                style={styles.cookBtn}
+                onPress={() => navigation.navigate('CookingMode', { recipeId: nextSlot.recipeId })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.cookBtnText}>Cuisiner</Text>
+                <Ionicons name="arrow-forward" size={12} color={C.primary} />
+              </TouchableOpacity>
+            )}
           </View>
-          <View style={styles.nextMealIcon}>
-            <Ionicons name={MEAL_ICONS[mealKeyIds[nextMealIdx]]} size={26} color={Colors.onPrimary} />
+          <View style={[styles.nextIconCircle, { backgroundColor: `${MEAL_COLORS[mealKeys[nextMealIdx] as string]}18` }]}>
+            <Ionicons name={MEAL_ICONS[mealKeys[nextMealIdx] as string]} size={32} color={MEAL_COLORS[mealKeys[nextMealIdx] as string]} />
           </View>
         </View>
+      </Animated.View>
 
-        {/* Budget card */}
-        <View style={styles.budgetCard}>
-          <View style={styles.budgetTop}>
-            <View>
-              <Text style={styles.budgetLabel}>{t('dashboard_weekly_spend')}</Text>
-              <View style={styles.budgetAmountRow}>
-                <Text style={[styles.budgetAmount, isOver && styles.budgetAmountOver]}>
-                  {formatCurrency(weeklySpend)}
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+
+        {/* ── Quick Actions ───────────────────────────── */}
+        <Animated.View style={[styles.section, card(1)]}>
+          <View style={styles.quickRow}>
+            {([
+              { icon: 'calendar-outline',  label: t('tabs_planner'),  screen: 'WeeklyPlanner', accent: true },
+              { icon: 'book-outline',       label: t('tabs_recipes'),  screen: 'Recipes' },
+              { icon: 'cart-outline',       label: t('tabs_shopping'), screen: 'ShoppingList' },
+              { icon: 'scan-outline',       label: 'Scanner',          screen: 'FoodScanner' },
+            ] as Array<{ icon: string; label: string; screen: string; accent?: boolean }>).map((a) => (
+              <TouchableOpacity
+                key={a.screen}
+                style={[styles.quickBtn, a.accent && { backgroundColor: C.primary }]}
+                onPress={() => navigation.navigate(a.screen)}
+                activeOpacity={0.78}
+              >
+                <Ionicons name={a.icon as any} size={17} color={a.accent ? C.onPrimary : C.primary} />
+                <Text style={[styles.quickLabel, a.accent && { color: C.onPrimary }]}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* ── Budget Card ─────────────────────────────── */}
+        <Animated.View style={[styles.section, card(2)]}>
+          <View style={styles.budgetCard}>
+            <View style={styles.budgetBlob} />
+
+            <View style={styles.budgetTopRow}>
+              <Text style={styles.budgetCaption}>{t('dashboard_weekly_spend').toUpperCase()}</Text>
+              <View style={[styles.statusPill, isOver ? styles.statusOver : styles.statusOk]}>
+                <Ionicons
+                  name={isOver ? 'warning-outline' : 'checkmark-circle-outline'}
+                  size={11}
+                  color={isOver ? C.tertiary : C.secondary}
+                />
+                <Text style={[styles.statusText, isOver && { color: C.tertiary }]}>
+                  {isOver ? 'Dépassé' : 'Dans les clous'}
                 </Text>
-                <Text style={styles.budgetLimit}> / {formatCurrency(limit)}</Text>
               </View>
             </View>
-            <View style={[styles.budgetBadge, isOver ? styles.budgetBadgeOver : styles.budgetBadgeOk]}>
-              <Ionicons name={isOver ? 'warning-outline' : 'checkmark-circle-outline'} size={14} color={isOver ? Colors.tertiary : Colors.primary} />
-              <Text style={[styles.budgetBadgeText, isOver && styles.budgetBadgeTextOver]}>
-                {isOver ? `+${formatCurrency(weeklySpend - limit)}` : `−${formatCurrency(remaining)}`}
+
+            <View style={styles.budgetAmountRow}>
+              <Text style={[styles.budgetAmount, isOver && { color: C.tertiary }]}>
+                {formatCurrency(weeklySpend)}
+              </Text>
+              <Text style={styles.budgetCap}> / {formatCurrency(limit)}</Text>
+            </View>
+
+            <View style={styles.progressTrack}>
+              <View style={[
+                styles.progressFill,
+                { width: `${pct * 100}%`, backgroundColor: isOver ? C.tertiary : C.primary },
+              ]} />
+            </View>
+
+            <View style={styles.budgetSubRow}>
+              <Text style={styles.budgetPct}>{Math.round(pct * 100)}% utilisé</Text>
+              <Text style={styles.budgetRem}>
+                {isOver
+                  ? `+${formatCurrency(weeklySpend - limit)} de dépassement`
+                  : `${formatCurrency(remaining)} restant`}
               </Text>
             </View>
-          </View>
 
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: isOver ? Colors.tertiary : Colors.primary }]} />
-          </View>
+            <View style={styles.budgetDivider} />
 
-          <View style={styles.budgetStats}>
-            <View style={styles.budgetStat}>
-              <Text style={styles.budgetStatValue}>{plannedSlots.length}</Text>
-              <Text style={styles.budgetStatLabel}>{t('dashboard_meals_label')}</Text>
-            </View>
-            <View style={styles.budgetStatDivider} />
-            <View style={styles.budgetStat}>
-              <Text style={styles.budgetStatValue}>{formatCurrency(weeklySpend / 7)}</Text>
-              <Text style={styles.budgetStatLabel}>{t('dashboard_avg_day')}</Text>
-            </View>
-            <View style={styles.budgetStatDivider} />
-            <View style={styles.budgetStat}>
-              <Text style={styles.budgetStatValue}>{recipes.length}</Text>
-              <Text style={styles.budgetStatLabel}>{t('dashboard_recipes_count')}</Text>
+            <View style={styles.budgetStats}>
+              {[
+                { val: String(plannedSlots.length), lbl: t('dashboard_meals_label') },
+                { val: formatCurrency(totalMeals > 0 ? weeklySpend / 7 : 0), lbl: t('dashboard_avg_day') },
+                { val: String(recipes.length), lbl: t('dashboard_recipes_count') },
+              ].map((s, i) => (
+                <React.Fragment key={s.lbl}>
+                  {i > 0 && <View style={styles.budgetStatSep} />}
+                  <View style={styles.budgetStat}>
+                    <Text style={styles.budgetStatVal}>{s.val}</Text>
+                    <Text style={styles.budgetStatLbl}>{s.lbl}</Text>
+                  </View>
+                </React.Fragment>
+              ))}
             </View>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Today's menu */}
-        <View style={styles.section}>
+        {/* ── Today's Menu ────────────────────────────── */}
+        <Animated.View style={[styles.section, card(3)]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{t('dashboard_today_menu')}</Text>
             {dayTotal > 0 && (
               <View style={styles.dayCostPill}>
-                <Ionicons name="wallet-outline" size={12} color={Colors.primary} />
+                <Ionicons name="wallet-outline" size={11} color={C.primary} />
                 <Text style={styles.dayCostText}>{formatCurrency(dayTotal)}</Text>
               </View>
             )}
           </View>
-
           <View style={styles.todayCard}>
             {mealLabels.map((label, idx) => {
-              const slot = weekPlan?.days[todayKey]?.[mealKeyIds[idx]] as any;
+              const slot   = weekPlan?.days[todayKey]?.[mealKeys[idx]] as any;
               const filled = !!slot?.recipeId;
               const isNext = idx === nextMealIdx;
+              const mc     = MEAL_COLORS[mealKeys[idx] as string];
               return (
-                <View key={label} style={[styles.mealRow, idx < 2 && styles.mealRowBorder, isNext && styles.mealRowHighlight]}>
-                  <View style={[styles.mealIconWrap, isNext && styles.mealIconWrapActive]}>
-                    <Ionicons name={MEAL_ICONS[mealKeyIds[idx]]} size={16} color={isNext ? Colors.onPrimary : Colors.onSurfaceVariant} />
+                <View
+                  key={label}
+                  style={[
+                    styles.mealRow,
+                    idx < 2 && { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
+                    isNext && { backgroundColor: `${mc}08` },
+                  ]}
+                >
+                  <View style={[styles.mealIconWrap, { backgroundColor: isNext ? mc : `${mc}18` }]}>
+                    <Ionicons name={MEAL_ICONS[mealKeys[idx] as string]} size={16} color={isNext ? '#fff' : mc} />
                   </View>
-                  <View style={styles.mealContent}>
-                    <Text style={[styles.mealLabel, isNext && styles.mealLabelActive]}>{label}</Text>
-                    <Text style={[styles.mealName, !filled && styles.mealNameEmpty]} numberOfLines={1}>
+                  <View style={styles.mealBody}>
+                    <Text style={[styles.mealLabel, { color: mc }]}>{label}</Text>
+                    <Text style={[styles.mealName, !filled && { color: C.outlineVariant, fontFamily: FontFamily.body }]} numberOfLines={1}>
                       {filled ? slot.recipeName : t('dashboard_not_planned')}
                     </Text>
                   </View>
-                  {filled && slot.cost > 0 && <Text style={styles.mealCost}>{formatCurrency(slot.cost)}</Text>}
-                  {isNext && filled && (
-                    <View style={styles.nextBadge}><Text style={styles.nextBadgeText}>{t('dashboard_next_badge')}</Text></View>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Wellness balance — redesigned */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('dashboard_wellness')}</Text>
-            <View style={styles.varietyScorePill}>
-              <Ionicons name="stats-chart-outline" size={12} color={Colors.primary} />
-              <Text style={styles.varietyScoreText}>{varietyScore}%</Text>
-            </View>
-          </View>
-
-          {/* Stats row above bars */}
-          <View style={styles.wellnessStatsRow}>
-            <View style={styles.wellnessStatBox}>
-              <Ionicons name="restaurant-outline" size={18} color={Colors.primary} />
-              <Text style={styles.wellnessStatValue}>{totalMeals}</Text>
-              <Text style={styles.wellnessStatLabel}>{t('dashboard_total_planned')}</Text>
-            </View>
-            <View style={styles.wellnessStatDivider} />
-            <View style={styles.wellnessStatBox}>
-              <Ionicons name="shuffle-outline" size={18} color={Colors.primary} />
-              <Text style={styles.wellnessStatValue}>{varietyScore}%</Text>
-              <Text style={styles.wellnessStatLabel}>{t('dashboard_variety_score')}</Text>
-            </View>
-            <View style={styles.wellnessStatDivider} />
-            <View style={styles.wellnessStatBox}>
-              <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-              <Text style={styles.wellnessStatValue}>{daysWithMeals}/7</Text>
-              <Text style={styles.wellnessStatLabel}>{t('dashboard_this_week')}</Text>
-            </View>
-          </View>
-
-          {/* Wellness bars */}
-          <View style={styles.wellnessBarsCard}>
-            {wellnessTypes.map((type, idx) => {
-              const cfg = WELLNESS_CONFIG[type];
-              const count = wellnessCounts[type];
-              const pctW = totalMeals > 0 ? count / totalMeals : 0;
-              const label = t(`wellness_${type}`);
-              return (
-                <View key={type} style={[styles.wellnessBarRow, idx < 2 && styles.wellnessBarRowBorder]}>
-                  <View style={styles.wellnessBarLeft}>
-                    <View style={[styles.wellnessBarIcon, { backgroundColor: cfg.bg }]}>
-                      <Ionicons name={cfg.icon} size={14} color={cfg.color} />
-                    </View>
-                    <Text style={styles.wellnessBarLabel}>{label}</Text>
-                  </View>
-                  <View style={styles.wellnessBarCenter}>
-                    <View style={styles.wellnessBarTrack}>
-                      <View style={[styles.wellnessBarFill, { width: `${pctW * 100}%`, backgroundColor: cfg.color }]} />
-                    </View>
-                  </View>
-                  <View style={styles.wellnessBarRight}>
-                    <Text style={[styles.wellnessBarPct, { color: cfg.color }]}>{Math.round(pctW * 100)}%</Text>
-                    <Text style={styles.wellnessBarCount}>{count} {t('dashboard_meals')}</Text>
+                  <View style={styles.mealRight}>
+                    {filled && slot.cost > 0 && (
+                      <Text style={styles.mealCost}>{formatCurrency(slot.cost)}</Text>
+                    )}
+                    {isNext && filled && (
+                      <View style={[styles.nextBadge, { backgroundColor: mc }]}>
+                        <Text style={styles.nextBadgeText}>{t('dashboard_next_badge')}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               );
             })}
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Weekly strip */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('dashboard_this_week')}</Text>
+        {/* ── Weekly Strip ────────────────────────────── */}
+        <Animated.View style={[styles.section, card(4)]}>
+          <Text style={[styles.sectionTitle, { marginBottom: Spacing.sm }]}>{t('dashboard_this_week')}</Text>
           <View style={styles.weekStrip}>
             {dayKeys.map((key, idx) => {
-              const dayPlan = weekPlan?.days[key];
-              const mealsCount = dayPlan
-                ? [dayPlan.breakfast, dayPlan.lunch, dayPlan.dinner].filter((m) => m.recipeId).length
-                : 0;
-              const isToday = idx === (new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
-              const dayNum = (() => {
-                const today = new Date();
-                const weekStartDate = new Date(today);
-                weekStartDate.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
-                const d = new Date(weekStartDate);
-                d.setDate(weekStartDate.getDate() + idx);
-                return d.getDate();
-              })();
+              const dp = weekPlan?.days[key];
+              const cnt = dp ? [dp.breakfast, dp.lunch, dp.dinner].filter((m) => m.recipeId).length : 0;
+              const isToday = idx === todayIdx;
+              const today = new Date();
+              const start = new Date(today);
+              start.setDate(today.getDate() - todayIdx);
+              const d = new Date(start);
+              d.setDate(start.getDate() + idx);
               return (
-                <View key={key} style={[styles.weekDay, isToday && styles.weekDayActive]}>
-                  <Text style={[styles.weekDayLabel, isToday && styles.weekDayLabelActive]}>
-                    {['L','M','M','J','V','S','D'][idx]}
-                  </Text>
-                  <Text style={[styles.weekDayNum, isToday && styles.weekDayNumActive]}>{dayNum}</Text>
-                  <View style={styles.weekDayDots}>
-                    {[0,1,2].map((i) => (
-                      <View key={i} style={[styles.dot, i < mealsCount && (isToday ? styles.dotFilledActive : styles.dotFilled)]} />
+                <View key={key} style={[styles.weekDay, isToday && { backgroundColor: C.primary }]}>
+                  <Text style={[styles.weekLetter, isToday && { color: C.onPrimary }]}>{DAY_LETTERS[idx]}</Text>
+                  <Text style={[styles.weekNum,    isToday && { color: C.onPrimary }]}>{d.getDate()}</Text>
+                  <View style={styles.dotRow}>
+                    {[0, 1, 2].map((i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.dot,
+                          i < cnt && { backgroundColor: isToday ? 'rgba(255,255,255,0.85)' : C.primary },
+                        ]}
+                      />
                     ))}
                   </View>
                 </View>
               );
             })}
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Pantry shortcut */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.pantryCard} onPress={() => navigation.navigate('Pantry')} activeOpacity={0.85}>
+        {/* ── Wellness + Pantry ───────────────────────── */}
+        <Animated.View style={[styles.section, card(5)]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t('dashboard_wellness')}</Text>
+            <View style={styles.varietyPill}>
+              <Ionicons name="stats-chart-outline" size={11} color={C.primary} />
+              <Text style={styles.varietyText}>{varietyScore}%</Text>
+            </View>
+          </View>
+
+          <View style={styles.wellnessCard}>
+            {wellnessTypes.map((type, idx) => {
+              const cfg  = WELLNESS_CFG[type];
+              const cnt  = wellnessCounts[type];
+              const pctW = totalMeals > 0 ? cnt / totalMeals : 0;
+              return (
+                <View key={type} style={[styles.wellnessRow, idx < 2 && { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh }]}>
+                  <View style={[styles.wellnessIcon, { backgroundColor: cfg.bg }]}>
+                    <Ionicons name={cfg.icon} size={14} color={cfg.color} />
+                  </View>
+                  <Text style={styles.wellnessLbl}>{t(`wellness_${type}`)}</Text>
+                  <View style={styles.wellnessTrack}>
+                    <View style={[styles.wellnessFill, { width: `${pctW * 100}%`, backgroundColor: cfg.color }]} />
+                  </View>
+                  <Text style={[styles.wellnessPct, { color: cfg.color }]}>{Math.round(pctW * 100)}%</Text>
+                </View>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity style={styles.pantryCard} onPress={() => navigation.navigate('Pantry')} activeOpacity={0.84}>
             <View style={styles.pantryLeft}>
               <View style={styles.pantryIconWrap}>
-                <Ionicons name="basket-outline" size={22} color={Colors.primary} />
+                <Ionicons name="basket-outline" size={20} color={C.primary} />
               </View>
               <View>
                 <Text style={styles.pantryTitle}>{t('dashboard_pantry_title')}</Text>
@@ -346,189 +450,168 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             <View style={styles.pantryRight}>
               {pantryCount > 0 && (
-                <View style={styles.pantryCountBadge}>
-                  <Text style={styles.pantryCountText}>{pantryCount}</Text>
-                </View>
+                <View style={styles.pantryCnt}><Text style={styles.pantryCntText}>{pantryCount}</Text></View>
               )}
-              <Ionicons name="chevron-forward" size={18} color={Colors.outlineVariant} />
+              <Ionicons name="chevron-forward" size={16} color={C.outlineVariant} />
             </View>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
-        {/* Tip */}
-        <View style={styles.section}>
-          <View style={styles.tipCard}>
-            <View style={styles.tipIconWrap}>
-              <Ionicons name="bulb-outline" size={20} color={Colors.secondary} />
-            </View>
-            <Text style={styles.tipText}>
-              {isOver ? t('dashboard_tip_over') : t('dashboard_tip_ok')}
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ height: 110 }} />
       </ScrollView>
-      </Animated.View>
     </Animated.View>
   );
 };
 
+// ── Styles ────────────────────────────────────────────────
 const createStyles = (C: typeof Colors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.surface },
 
-  headerBand: {
+  // Header
+  header: {
     backgroundColor: C.primary,
-    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg + 16,
-    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
     overflow: 'hidden',
   },
-  headerDecor: {
-    position: 'absolute', width: 220, height: 220, borderRadius: 110,
-    backgroundColor: 'rgba(255,255,255,0.06)', top: -70, right: -50,
+  blobTR: {
+    position: 'absolute', width: 260, height: 260, borderRadius: 130,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -80, right: -70,
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  greeting: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)' },
-  userName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg, color: '#fff', marginTop: 2 },
+  blobBL: {
+    position: 'absolute', width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -50, left: -40,
+  },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.lg },
+  headerGreeting: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.72)', marginBottom: 2 },
+  headerName: { fontFamily: FontFamily.headlineBold, fontSize: 30, color: '#fff', letterSpacing: -0.5 },
+  headerDate: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.55)', marginTop: 3 },
 
-  nextMealCard: {
-    marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-    backgroundColor: C.primaryContainer,
+  headerStats: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: BorderRadius.xl,
+    paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.md,
+  },
+  headerStat: { flex: 1, alignItems: 'center' },
+  headerStatVal: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineSm, color: '#fff' },
+  headerStatLbl: { fontFamily: FontFamily.body, fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 1, textAlign: 'center' },
+  headerStatDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.2)' },
+
+  // Next meal card (floats out of header)
+  nextWrap: { marginTop: -28, paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
+  nextCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.surfaceContainerLowest,
     borderRadius: BorderRadius.xxl,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 3,
+    overflow: 'hidden',
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 20, elevation: 8,
   },
-  nextMealLeft: { flex: 1 },
-  nextMealTag: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: C.primary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
-  nextMealName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onPrimaryContainer },
-  nextMealLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 2 },
-  nextMealIcon: { marginLeft: Spacing.md, width: 48, height: 48, borderRadius: 24, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
+  nextAccent: { width: 5, alignSelf: 'stretch' },
+  nextBody: { flex: 1, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md },
+  nextTag: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 },
+  nextName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineSm, color: C.onSurface, marginBottom: 6 },
+  cookBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
+  cookBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
+  nextIconCircle: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
 
+  // Quick actions
+  section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  quickRow: { flexDirection: 'row', gap: Spacing.sm },
+  quickBtn: {
+    flex: 1, alignItems: 'center', paddingVertical: Spacing.sm + 3, borderRadius: BorderRadius.xl,
+    backgroundColor: `${C.primary}12`, gap: 4,
+  },
+  quickLabel: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: C.primary, textAlign: 'center' },
+
+  // Budget card
   budgetCard: {
-    marginHorizontal: Spacing.lg, marginTop: Spacing.sm, marginBottom: Spacing.md,
-    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 5,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    padding: Spacing.lg, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 4,
   },
-  budgetTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
-  budgetLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginBottom: 4 },
-  budgetAmountRow: { flexDirection: 'row', alignItems: 'baseline' },
-  budgetAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displayMd, color: C.onSurface, letterSpacing: -0.5 },
-  budgetAmountOver: { color: C.tertiary },
-  budgetLimit: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
-  budgetBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: Spacing.sm, paddingVertical: 5, borderRadius: BorderRadius.full,
+  budgetBlob: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: `${C.primary}06`, top: -60, right: -60,
   },
-  budgetBadgeOk: { backgroundColor: `${C.primary}12` },
-  budgetBadgeOver: { backgroundColor: `${C.tertiary}15` },
-  budgetBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
-  budgetBadgeTextOver: { color: C.tertiary },
-  progressBar: { height: 6, backgroundColor: C.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden', marginBottom: Spacing.lg },
-  progressFill: { height: '100%', borderRadius: 3 },
+  budgetTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs },
+  budgetCaption: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, letterSpacing: 0.8 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: BorderRadius.full },
+  statusOk: { backgroundColor: `${C.secondary}14` },
+  statusOver: { backgroundColor: `${C.tertiary}14` },
+  statusText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.secondary },
+  budgetAmountRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: Spacing.md },
+  budgetAmount: { fontFamily: FontFamily.headlineBold, fontSize: 38, color: C.onSurface, letterSpacing: -1 },
+  budgetCap: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  progressTrack: { height: 10, backgroundColor: C.surfaceContainerHigh, borderRadius: 5, overflow: 'hidden', marginBottom: Spacing.xs },
+  progressFill: { height: '100%', borderRadius: 5 },
+  budgetSubRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md },
+  budgetPct: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  budgetRem: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  budgetDivider: { height: 1, backgroundColor: C.surfaceContainerHigh, marginBottom: Spacing.md },
   budgetStats: { flexDirection: 'row', alignItems: 'center' },
   budgetStat: { flex: 1, alignItems: 'center' },
-  budgetStatValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
-  budgetStatLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, marginTop: 1 },
-  budgetStatDivider: { width: 1, height: 28, backgroundColor: C.surfaceContainerHigh },
+  budgetStatVal: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
+  budgetStatLbl: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, marginTop: 1, textAlign: 'center' },
+  budgetStatSep: { width: 1, height: 28, backgroundColor: C.surfaceContainerHigh },
 
-  section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  // Section headers
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
   sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: C.onSurface },
-  dayCostPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${C.primary}12`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
-  dayCostText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
+  dayCostPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${C.primary}12`, borderRadius: BorderRadius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  dayCostText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.primary },
 
+  // Today's menu
   todayCard: {
     backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
-  mealRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: Spacing.md, gap: Spacing.sm },
-  mealRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
-  mealRowHighlight: { backgroundColor: `${C.primary}07` },
-  mealIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' },
-  mealIconWrapActive: { backgroundColor: C.primary },
-  mealContent: { flex: 1 },
-  mealLabel: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.5 },
-  mealLabelActive: { color: C.primary },
-  mealName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, marginTop: 1 },
-  mealNameEmpty: { color: C.outlineVariant, fontFamily: FontFamily.body },
-  mealCost: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
-  nextBadge: { backgroundColor: C.primary, borderRadius: BorderRadius.full, paddingHorizontal: 8, paddingVertical: 3, marginLeft: Spacing.xs },
-  nextBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: C.onPrimary },
+  mealRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: Spacing.md, gap: Spacing.sm },
+  mealIconWrap: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  mealBody: { flex: 1 },
+  mealLabel: { fontFamily: FontFamily.bodyMedium, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 },
+  mealName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  mealRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  mealCost: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+  nextBadge: { borderRadius: BorderRadius.full, paddingHorizontal: 8, paddingVertical: 3 },
+  nextBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 10, color: '#fff' },
 
-  // Wellness — new
-  varietyScorePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${C.primary}12`, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
-  varietyScoreText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
-
-  wellnessStatsRow: {
-    flexDirection: 'row', backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl,
-    padding: Spacing.md, marginBottom: Spacing.sm,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-  },
-  wellnessStatBox: { flex: 1, alignItems: 'center', gap: 3 },
-  wellnessStatValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.onSurface },
-  wellnessStatLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, textAlign: 'center' },
-  wellnessStatDivider: { width: 1, backgroundColor: C.surfaceContainerHigh },
-
-  wellnessBarsCard: {
-    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-  },
-  wellnessBarRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 13, gap: Spacing.sm },
-  wellnessBarRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
-  wellnessBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, width: 90 },
-  wellnessBarIcon: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  wellnessBarLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurface },
-  wellnessBarCenter: { flex: 1 },
-  wellnessBarTrack: { height: 8, backgroundColor: C.surfaceContainerHigh, borderRadius: 4, overflow: 'hidden' },
-  wellnessBarFill: { height: '100%', borderRadius: 4 },
-  wellnessBarRight: { alignItems: 'flex-end', width: 60 },
-  wellnessBarPct: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd },
-  wellnessBarCount: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, marginTop: 1 },
-
-  // Week strip
+  // Weekly strip
   weekStrip: {
-    flexDirection: 'row', backgroundColor: C.surfaceContainerLowest,
-    borderRadius: BorderRadius.xl, padding: Spacing.sm,
+    flexDirection: 'row', backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, padding: Spacing.xs,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
-  weekDay: { flex: 1, alignItems: 'center', paddingVertical: Spacing.xs, borderRadius: BorderRadius.lg },
-  weekDayActive: { backgroundColor: C.primary },
-  weekDayLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, marginBottom: 1 },
-  weekDayLabelActive: { color: C.onPrimary },
-  weekDayNum: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onSurfaceVariant, marginBottom: 3 },
-  weekDayNumActive: { color: C.onPrimary },
-  weekDayDots: { flexDirection: 'column', gap: 2 },
+  weekDay: { flex: 1, alignItems: 'center', paddingVertical: Spacing.xs + 2, borderRadius: BorderRadius.lg },
+  weekLetter: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onSurfaceVariant, marginBottom: 1 },
+  weekNum: { fontFamily: FontFamily.bodyBold, fontSize: 12, color: C.onSurfaceVariant, marginBottom: 4 },
+  dotRow: { flexDirection: 'column', gap: 2 },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.surfaceContainerHigh },
-  dotFilled: { backgroundColor: C.outline },
-  dotFilledActive: { backgroundColor: C.onPrimary },
 
+  // Wellness
+  varietyPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${C.primary}12`, borderRadius: BorderRadius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  varietyText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.primary },
+  wellnessCard: {
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden', marginBottom: Spacing.sm,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+  },
+  wellnessRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12, gap: Spacing.sm },
+  wellnessIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  wellnessLbl: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurface, width: 72 },
+  wellnessTrack: { flex: 1, height: 8, backgroundColor: C.surfaceContainerHigh, borderRadius: 4, overflow: 'hidden' },
+  wellnessFill: { height: '100%', borderRadius: 4 },
+  wellnessPct: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, width: 36, textAlign: 'right' },
+
+  // Pantry
   pantryCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, padding: Spacing.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   pantryLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  pantryIconWrap: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center',
-  },
+  pantryIconWrap: { width: 42, height: 42, borderRadius: 21, backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center' },
   pantryTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
   pantrySub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 1 },
   pantryRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  pantryCountBadge: {
-    backgroundColor: C.primary, borderRadius: BorderRadius.full,
-    paddingHorizontal: 8, paddingVertical: 2,
-  },
-  pantryCountText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onPrimary },
-  tipCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,
-    backgroundColor: `${C.secondaryContainer}50`, borderRadius: BorderRadius.xl, padding: Spacing.md,
-  },
-  tipIconWrap: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: `${C.secondary}15`, alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  tipText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.secondary, flex: 1, lineHeight: 20 },
+  pantryCnt: { backgroundColor: C.primary, borderRadius: BorderRadius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  pantryCntText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onPrimary },
 });

@@ -416,7 +416,7 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   },
   weekSummaryText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: '#fff' },
 
-  dayRow: { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.xs },
+  dayRow: { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.xs, marginTop: -28 },
   dayChip: {
     flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: BorderRadius.xl,
     backgroundColor: C.surfaceContainerHigh, height: 74, justifyContent: 'center',

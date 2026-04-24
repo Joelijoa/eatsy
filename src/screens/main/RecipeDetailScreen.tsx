@@ -388,6 +388,7 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
     backgroundColor: C.surfaceContainerLowest,
     borderRadius: BorderRadius.xxl, padding: Spacing.lg,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5,
+    zIndex: 1,
   },
   titleCardTop: { gap: Spacing.xs },
   wellnessBadge: {

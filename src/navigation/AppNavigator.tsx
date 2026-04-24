@@ -6,7 +6,9 @@ import { View, Text, StyleSheet, ActivityIndicator, Animated } from 'react-nativ
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
+import { OnboardingScreen, ONBOARDING_KEY } from '../screens/OnboardingScreen';
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -136,8 +138,15 @@ export const AppNavigator: React.FC = () => {
   const { user, loading } = useAuth();
   const { t, applyRemotePrefs, darkMode } = usePreferences();
   const [showWelcome, setShowWelcome] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const welcomeFade = useRef(new Animated.Value(1)).current;
   const initialLoadDone = useRef(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
+      setOnboardingDone(val === 'true');
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -167,7 +176,7 @@ export const AppNavigator: React.FC = () => {
     }
   }, [user, loading]);
 
-  if (loading) {
+  if (loading || onboardingDone === null) {
     return (
       <View style={styles.splash}>
         <Ionicons name="restaurant" size={48} color={Colors.primary} />
@@ -190,6 +199,9 @@ export const AppNavigator: React.FC = () => {
             </>
           ) : (
             <>
+              {!onboardingDone && (
+                <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+              )}
               <RootStack.Screen name="Login"          component={LoginScreen} />
               <RootStack.Screen name="Register"       component={RegisterScreen} />
               <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

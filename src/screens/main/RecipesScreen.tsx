@@ -63,7 +63,6 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
     const wColor = WELLNESS_COLOR[item.wellnessType];
     const wIcon = WELLNESS_ICON[item.wellnessType];
     const totalTime = item.prepTime + item.cookTime;
-    const catName = categories.find((c) => c.id === item.categoryId)?.name;
 
     return (
       <TouchableOpacity
@@ -71,26 +70,20 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
         onPress={() => navigation.navigate('RecipeDetail', { recipeId: item.id })}
         activeOpacity={0.82}
       >
-        {/* Left accent bar */}
-        <View style={[styles.cardAccent, { backgroundColor: wColor }]} />
-
         {/* Thumbnail */}
         <View style={styles.thumbnailWrap}>
           {item.imageUrl ? (
             <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
           ) : (
             <View style={[styles.thumbnailPlaceholder, { backgroundColor: `${wColor}18` }]}>
-              <Ionicons name={wIcon} size={20} color={wColor} />
+              <Ionicons name={wIcon} size={22} color={wColor} />
             </View>
           )}
         </View>
 
         {/* Content */}
         <View style={styles.cardContent}>
-          <View style={styles.cardTop}>
-            <Text style={styles.recipeName} numberOfLines={1}>{item.name}</Text>
-            {catName && <View style={styles.catBadge}><Text style={styles.catBadgeText}>{catName}</Text></View>}
-          </View>
+          <Text style={styles.recipeName} numberOfLines={1}>{item.name}</Text>
 
           <View style={styles.cardMeta}>
             <View style={styles.metaItem}>
@@ -110,17 +103,6 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
                   <Text style={styles.metaText}>{formatCurrency(perServing)}</Text>
                 </View>
               </>
-            )}
-          </View>
-
-          {/* Wellness + ingredient count */}
-          <View style={styles.cardBottom}>
-            <View style={[styles.wellnessBadge, { backgroundColor: `${wColor}15` }]}>
-              <Ionicons name={wIcon} size={11} color={wColor} />
-              <Text style={[styles.wellnessBadgeText, { color: wColor }]}>{t(`wellness_${item.wellnessType}`)}</Text>
-            </View>
-            {item.ingredients.length > 0 && (
-              <Text style={styles.ingCount}>{item.ingredients.length} ingr.</Text>
             )}
           </View>
         </View>
@@ -167,7 +149,7 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* Filters */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow} style={{ flexGrow: 0 }}>
         <TouchableOpacity
           style={[styles.chip, noFilter && styles.chipActive]}
           onPress={() => { setActiveCategory(null); setActiveWellness(null); setSearch(''); }}
@@ -205,6 +187,7 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
         data={filtered}
         keyExtractor={(r) => r.id}
         renderItem={renderRecipe}
+        style={styles.flatList}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
@@ -249,13 +232,14 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
-    marginHorizontal: Spacing.lg, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm,
+    marginHorizontal: Spacing.lg, paddingHorizontal: Spacing.md,
+    marginTop: -28,
   },
   searchInput: {
     flex: 1, paddingVertical: 11, fontFamily: FontFamily.body,
     fontSize: FontSize.bodyMd, color: C.onSurface,
   },
-  filterRow: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm, gap: Spacing.xs },
+  filterRow: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs, paddingBottom: Spacing.xs, gap: Spacing.xs },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: Spacing.md, height: 34,
@@ -265,6 +249,7 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   chipActive: { backgroundColor: C.primary },
   chipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
   chipTextActive: { color: C.onPrimary },
+  flatList: { flex: 1 },
   list: { paddingHorizontal: Spacing.lg, paddingBottom: 140 },
 
   recipeCard: {
@@ -272,29 +257,18 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
     backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
-  cardAccent: { width: 4, alignSelf: 'stretch' },
-  thumbnailWrap: { width: 64, height: 64, margin: Spacing.sm, borderRadius: BorderRadius.lg, overflow: 'hidden', flexShrink: 0 },
+  thumbnailWrap: { width: 68, height: 68, margin: Spacing.sm, borderRadius: BorderRadius.lg, overflow: 'hidden', flexShrink: 0 },
   thumbnail: { width: '100%', height: '100%' },
   thumbnailPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', borderRadius: BorderRadius.lg },
-  cardContent: { flex: 1, paddingVertical: Spacing.sm, paddingRight: 4 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: 3 },
-  recipeName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, flex: 1 },
-  catBadge: {
-    backgroundColor: C.surfaceContainerHigh, borderRadius: BorderRadius.full,
-    paddingHorizontal: 6, paddingVertical: 2,
-  },
-  catBadgeText: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  cardContent: { flex: 1, paddingVertical: Spacing.sm + 2, paddingRight: 4 },
+  recipeName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, marginBottom: 5 },
+  cardMeta: { flexDirection: 'row', alignItems: 'center' },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   metaText: { fontFamily: FontFamily.body, fontSize: 11, color: C.onSurfaceVariant },
   metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.outlineVariant, marginHorizontal: 4 },
-  cardBottom: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  wellnessBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: BorderRadius.full },
-  wellnessBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 10 },
-  ingCount: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant },
   chevron: { marginRight: Spacing.sm },
 
-  empty: { alignItems: 'center', paddingVertical: 60, gap: Spacing.sm },
+  empty: { alignItems: 'center', paddingTop: Spacing.xl, paddingBottom: Spacing.xxl, gap: Spacing.sm },
   emptyIconWrap: { width: 70, height: 70, borderRadius: 35, backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.headlineSm, color: C.onSurface },
   emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },

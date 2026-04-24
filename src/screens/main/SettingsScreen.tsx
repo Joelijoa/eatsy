@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Animated } from 'react-native';
+import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences, Language, Currency , useColors } from '../../context/PreferencesContext';
+import { usePreferences, Language, Currency, useColors } from '../../context/PreferencesContext';
 import { signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
@@ -21,8 +22,11 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const Colors = useColors();
   const { user } = useAuth();
   const { t, language, currency, darkMode, setLanguage, setCurrency, setDarkMode } = usePreferences();
-  const [helpExpanded, setHelpExpanded] = useState(false);
+  const [helpExpanded, setHelpExpanded]   = useState(false);
+  const [expandedFaq, setExpandedFaq]     = useState<number | null>(null);
+  const [termsExpanded, setTermsExpanded] = useState(false);
   const [notifSettings, setNotifSettings] = useState<MealNotificationSettings | null>(null);
+  const { opacity, translateY } = useScreenEntrance();
 
   useEffect(() => {
     loadNotificationSettings().then(setNotifSettings);
@@ -59,6 +63,33 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     try { await setDoc(doc(db, 'users', user.uid), { preferences: patch }, { merge: true }); } catch {}
   };
 
+  const FAQ_ITEMS = [
+    {
+      q: "Mes données sont-elles partagées avec des tiers ?",
+      a: "Non. Vos données (recettes, planning, budget) sont stockées sur votre compte Firebase personnel et ne sont jamais partagées, vendues ou transmises à des tiers.",
+    },
+    {
+      q: "L'application fonctionne-t-elle hors ligne ?",
+      a: "Certaines données récemment consultées sont mises en cache par Firebase, mais la plupart des fonctionnalités nécessitent une connexion internet pour synchroniser vos données en temps réel.",
+    },
+    {
+      q: "Comment supprimer mon compte et mes données ?",
+      a: "Pour supprimer votre compte et toutes vos données, contactez le support depuis la section À propos. La suppression est définitive et irréversible.",
+    },
+    {
+      q: "Puis-je utiliser Eatsy sur plusieurs appareils ?",
+      a: "Oui. Vos données sont synchronisées via votre compte et accessibles sur tous vos appareils connectés avec les mêmes identifiants.",
+    },
+    {
+      q: "Comment sont calculés les coûts des recettes ?",
+      a: "Le coût d'une recette est la somme des prix unitaires de ses ingrédients, que vous renseignez lors de la création. Le coût par personne est ensuite calculé en divisant par le nombre de portions.",
+    },
+    {
+      q: "Mes données sont-elles sécurisées ?",
+      a: "Oui. Les données sont chiffrées en transit (HTTPS) et au repos dans l'infrastructure Google Firebase, soumise aux normes ISO 27001 et SOC 2.",
+    },
+  ];
+
   const HELP_ITEMS = [
     { title: t('help_planner_title'), desc: t('help_planner_desc'), icon: 'calendar-outline' as const },
     { title: t('help_recipes_title'), desc: t('help_recipes_desc'), icon: 'book-outline' as const },
@@ -79,108 +110,114 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     { value: 'en', label: t('settings_english'), flag: '🇬🇧' },
   ];
 
-  const CURRENCY_OPTIONS: Array<{ value: Currency; label: string }> = [
-    { value: 'EUR', label: t('settings_eur') },
-    { value: 'MAD', label: t('settings_mad') },
+  const CURRENCY_OPTIONS: Array<{ value: Currency; label: string; symbol: string }> = [
+    { value: 'EUR', label: t('settings_eur'), symbol: '€' },
+    { value: 'MAD', label: t('settings_mad'), symbol: 'د.م' },
   ];
 
   const styles = createStyles(Colors);
 
   return (
-    <View style={styles.screen}>
-      {/* Top bar */}
-      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={20} color={Colors.onSurface} />
-        </TouchableOpacity>
-        <Text style={styles.topBarTitle}>{t('settings_title')}</Text>
-        <View style={{ width: 40 }} />
+    <Animated.View style={[styles.screen, { opacity, transform: [{ translateY }] }]}>
+
+      {/* ── Header ── */}
+      <View style={[styles.headerBand, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerDecor1} />
+        <View style={styles.headerDecor2} />
+
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={20} color="rgba(255,255,255,0.9)" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t('settings_title')}</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <View style={styles.profileBlock}>
+          <View style={styles.avatarRing}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{user?.displayName?.[0]?.toUpperCase() ?? 'E'}</Text>
+            </View>
+          </View>
+          <Text style={styles.profileName}>{user?.displayName ?? 'Chef'}</Text>
+          <Text style={styles.profileEmail}>{user?.email}</Text>
+        </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}
+      >
 
-        {/* User card */}
-        <View style={styles.userCard}>
-          <View style={styles.userAvatar}>
-            <Text style={styles.userAvatarText}>{user?.displayName?.[0]?.toUpperCase() ?? 'E'}</Text>
-          </View>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user?.displayName ?? 'Chef'}</Text>
-            <Text style={styles.userEmail}>{user?.email}</Text>
+        {/* ── Langue ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="language-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>{t('settings_language').toUpperCase()}</Text>
+        </View>
+        <View style={styles.card}>
+          <View style={styles.optionsRow}>
+            {LANG_OPTIONS.map((opt) => {
+              const active = language === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[styles.langBtn, active && styles.langBtnActive]}
+                  onPress={() => { setLanguage(opt.value); savePrefsToFirestore({ language: opt.value }); }}
+                  activeOpacity={0.78}
+                >
+                  <Text style={styles.langFlag}>{opt.flag}</Text>
+                  <Text style={[styles.langLabel, active && styles.langLabelActive]}>{opt.label}</Text>
+                  {active && <Ionicons name="checkmark-circle" size={15} color={Colors.primary} />}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        {/* Language */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionCardHeader}>
-            <View style={styles.sectionCardIcon}>
-              <Ionicons name="language-outline" size={18} color={Colors.primary} />
-            </View>
-            <Text style={styles.sectionCardTitle}>{t('settings_language')}</Text>
-          </View>
-          <View style={styles.optionsRow}>
-            {LANG_OPTIONS.map((opt) => (
+        {/* ── Devise ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="cash-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>{t('settings_currency').toUpperCase()}</Text>
+        </View>
+        <View style={styles.card}>
+          {CURRENCY_OPTIONS.map((opt, idx) => {
+            const active = currency === opt.value;
+            return (
               <TouchableOpacity
                 key={opt.value}
-                style={[styles.optionBtn, language === opt.value && styles.optionBtnActive]}
-                onPress={() => { setLanguage(opt.value); savePrefsToFirestore({ language: opt.value }); }}
+                style={[styles.row, idx < CURRENCY_OPTIONS.length - 1 && styles.rowBorder]}
+                onPress={() => { setCurrency(opt.value); savePrefsToFirestore({ currency: opt.value }); }}
+                activeOpacity={0.78}
               >
-                <Text style={styles.optionFlag}>{opt.flag}</Text>
-                <Text style={[styles.optionLabel, language === opt.value && styles.optionLabelActive]}>
-                  {opt.label}
-                </Text>
-                {language === opt.value && (
-                  <Ionicons name="checkmark-circle" size={16} color={Colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Currency */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionCardHeader}>
-            <View style={styles.sectionCardIcon}>
-              <Ionicons name="wallet-outline" size={18} color={Colors.primary} />
-            </View>
-            <Text style={styles.sectionCardTitle}>{t('settings_currency')}</Text>
-          </View>
-          {CURRENCY_OPTIONS.map((opt, idx) => (
-            <TouchableOpacity
-              key={opt.value}
-              style={[styles.currencyRow, idx < CURRENCY_OPTIONS.length - 1 && styles.currencyRowBorder]}
-              onPress={() => { setCurrency(opt.value); savePrefsToFirestore({ currency: opt.value }); }}
-            >
-              <View style={styles.currencyLeft}>
-                <View style={[styles.currencySymbolWrap, currency === opt.value && styles.currencySymbolWrapActive]}>
-                  <Text style={[styles.currencySymbol, currency === opt.value && styles.currencySymbolActive]}>
-                    {opt.value === 'EUR' ? '€' : 'د.م'}
-                  </Text>
+                <View style={[styles.symbolBadge, active && styles.symbolBadgeActive]}>
+                  <Text style={[styles.symbolText, active && styles.symbolTextActive]}>{opt.symbol}</Text>
                 </View>
-                <Text style={styles.currencyLabel}>{opt.label}</Text>
-              </View>
-              <View style={[styles.radioOuter, currency === opt.value && styles.radioOuterActive]}>
-                {currency === opt.value && <View style={styles.radioInner} />}
-              </View>
-            </TouchableOpacity>
-          ))}
+                <Text style={styles.rowLabel}>{opt.label}</Text>
+                <View style={[styles.radio, active && styles.radioActive]}>
+                  {active && <View style={styles.radioDot} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Appearance — Dark mode */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionCardHeader}>
-            <View style={styles.sectionCardIcon}>
-              <Ionicons name="moon-outline" size={18} color={Colors.primary} />
+        {/* ── Apparence ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="color-palette-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>{t('settings_appearance').toUpperCase()}</Text>
+        </View>
+        <View style={styles.card}>
+          <View style={styles.switchRow}>
+            <View style={[styles.switchIcon, { backgroundColor: darkMode ? `${Colors.secondary}18` : `${Colors.tertiary}18` }]}>
+              <Ionicons
+                name={darkMode ? 'moon' : 'sunny-outline'}
+                size={18}
+                color={darkMode ? Colors.secondary : Colors.tertiary}
+              />
             </View>
-            <Text style={styles.sectionCardTitle}>{t('settings_appearance')}</Text>
-          </View>
-          <View style={styles.darkModeRow}>
-            <View style={styles.darkModeLeft}>
-              <Ionicons name={darkMode ? 'moon' : 'sunny-outline'} size={20} color={darkMode ? Colors.secondary : Colors.tertiary} />
-              <View>
-                <Text style={styles.darkModeLabel}>{t('settings_darkmode')}</Text>
-                <Text style={styles.darkModeSub}>{t('settings_darkmode_sub')}</Text>
-              </View>
+            <View style={styles.switchBody}>
+              <Text style={styles.switchLabel}>{t('settings_darkmode')}</Text>
+              <Text style={styles.switchSub}>{t('settings_darkmode_sub')}</Text>
             </View>
             <Switch
               value={darkMode}
@@ -191,66 +228,74 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Notifications */}
+        {/* ── Notifications ── */}
         {notifSettings !== null && (
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionCardHeader}>
-              <View style={styles.sectionCardIcon}>
-                <Ionicons name="notifications-outline" size={18} color={Colors.primary} />
-              </View>
-              <Text style={styles.sectionCardTitle}>{t('settings_notifications')}</Text>
+          <>
+            <View style={styles.groupLabel}>
+              <Ionicons name="notifications-outline" size={13} color={Colors.onSurfaceVariant} />
+              <Text style={styles.groupLabelText}>{t('settings_notifications').toUpperCase()}</Text>
             </View>
-            <View style={styles.darkModeRow}>
-              <View style={styles.darkModeLeft}>
-                <Ionicons name="alarm-outline" size={20} color={notifSettings.enabled ? Colors.primary : Colors.onSurfaceVariant} />
-                <View>
-                  <Text style={styles.darkModeLabel}>{t('settings_notifications')}</Text>
-                  <Text style={styles.darkModeSub}>{t('settings_notifications_sub')}</Text>
+            <View style={styles.card}>
+              <View style={styles.switchRow}>
+                <View style={[styles.switchIcon, { backgroundColor: notifSettings.enabled ? `${Colors.primary}15` : `${Colors.onSurfaceVariant}10` }]}>
+                  <Ionicons
+                    name="alarm-outline"
+                    size={18}
+                    color={notifSettings.enabled ? Colors.primary : Colors.onSurfaceVariant}
+                  />
                 </View>
+                <View style={styles.switchBody}>
+                  <Text style={styles.switchLabel}>{t('settings_notifications')}</Text>
+                  <Text style={styles.switchSub}>{t('settings_notifications_sub')}</Text>
+                </View>
+                <Switch
+                  value={notifSettings.enabled}
+                  onValueChange={toggleNotifications}
+                  trackColor={{ false: Colors.surfaceContainerHigh, true: Colors.primary }}
+                  thumbColor={notifSettings.enabled ? Colors.onPrimary : Colors.surface}
+                />
               </View>
-              <Switch
-                value={notifSettings.enabled}
-                onValueChange={toggleNotifications}
-                trackColor={{ false: Colors.surfaceContainerHigh, true: Colors.primary }}
-                thumbColor={notifSettings.enabled ? Colors.onPrimary : Colors.surface}
-              />
+              {notifSettings.enabled && (
+                <View style={styles.notifBlock}>
+                  {[
+                    { labelKey: 'settings_notifications_breakfast', icon: 'sunny-outline' as const, hour: notifSettings.breakfastHour, min: notifSettings.breakfastMinute },
+                    { labelKey: 'settings_notifications_lunch',     icon: 'partly-sunny-outline' as const, hour: notifSettings.lunchHour, min: notifSettings.lunchMinute },
+                    { labelKey: 'settings_notifications_dinner',    icon: 'moon-outline' as const, hour: notifSettings.dinnerHour, min: notifSettings.dinnerMinute },
+                  ].map((m, idx) => (
+                    <View key={idx} style={[styles.notifRow, idx < 2 && styles.rowBorder]}>
+                      <Ionicons name={m.icon} size={14} color={Colors.onSurfaceVariant} />
+                      <Text style={styles.notifLabel}>{t(m.labelKey)}</Text>
+                      <View style={styles.timePill}>
+                        <Text style={styles.timePillText}>
+                          {String(m.hour).padStart(2, '0')}:{String(m.min).padStart(2, '0')}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
-            {notifSettings.enabled && (
-              <View style={styles.notifTimes}>
-                {[
-                  { labelKey: 'settings_notifications_breakfast', hour: notifSettings.breakfastHour, min: notifSettings.breakfastMinute },
-                  { labelKey: 'settings_notifications_lunch', hour: notifSettings.lunchHour, min: notifSettings.lunchMinute },
-                  { labelKey: 'settings_notifications_dinner', hour: notifSettings.dinnerHour, min: notifSettings.dinnerMinute },
-                ].map((m, idx) => (
-                  <View key={idx} style={[styles.notifTimeRow, idx < 2 && styles.notifTimeRowBorder]}>
-                    <Text style={styles.notifTimeLabel}>{t(m.labelKey)}</Text>
-                    <Text style={styles.notifTimeValue}>
-                      {String(m.hour).padStart(2, '0')}:{String(m.min).padStart(2, '0')}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
+          </>
         )}
 
-        {/* Help */}
-        <View style={styles.sectionCard}>
-          <TouchableOpacity style={styles.sectionCardHeader} onPress={() => setHelpExpanded(!helpExpanded)}>
-            <View style={styles.sectionCardIcon}>
-              <Ionicons name="help-circle-outline" size={18} color={Colors.primary} />
-            </View>
-            <Text style={[styles.sectionCardTitle, { flex: 1 }]}>{t('settings_help')}</Text>
-            <Ionicons name={helpExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.outlineVariant} />
+        {/* ── Aide ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="help-circle-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>{t('settings_help').toUpperCase()}</Text>
+        </View>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.helpToggle} onPress={() => setHelpExpanded(!helpExpanded)} activeOpacity={0.78}>
+            <Text style={styles.helpToggleText}>{helpExpanded ? 'Masquer le guide' : 'Afficher le guide d\'utilisation'}</Text>
+            <Ionicons name={helpExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.onSurfaceVariant} />
           </TouchableOpacity>
           {helpExpanded && (
             <View style={styles.helpList}>
               {HELP_ITEMS.map((item, idx) => (
-                <View key={idx} style={[styles.helpItem, idx < HELP_ITEMS.length - 1 && styles.helpItemBorder]}>
-                  <View style={styles.helpIcon}>
-                    <Ionicons name={item.icon} size={16} color={Colors.primary} />
+                <View key={idx} style={[styles.helpItem, idx < HELP_ITEMS.length - 1 && styles.rowBorder]}>
+                  <View style={styles.helpIconWrap}>
+                    <Ionicons name={item.icon} size={15} color={Colors.primary} />
                   </View>
-                  <View style={styles.helpText}>
+                  <View style={styles.helpBody}>
                     <Text style={styles.helpTitle}>{item.title}</Text>
                     <Text style={styles.helpDesc}>{item.desc}</Text>
                   </View>
@@ -260,152 +305,318 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Account */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionCardHeader}>
-            <View style={styles.sectionCardIcon}>
-              <Ionicons name="person-outline" size={18} color={Colors.primary} />
+        {/* ── FAQ ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="chatbubble-ellipses-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>FAQ</Text>
+        </View>
+        <View style={styles.card}>
+          {FAQ_ITEMS.map((item, idx) => {
+            const open = expandedFaq === idx;
+            return (
+              <View key={idx} style={idx < FAQ_ITEMS.length - 1 && styles.rowBorder}>
+                <TouchableOpacity
+                  style={styles.faqRow}
+                  onPress={() => setExpandedFaq(open ? null : idx)}
+                  activeOpacity={0.78}
+                >
+                  <View style={[styles.faqBullet, open && { backgroundColor: Colors.primary }]}>
+                    <Text style={[styles.faqBulletText, open && { color: Colors.onPrimary }]}>
+                      {idx + 1}
+                    </Text>
+                  </View>
+                  <Text style={[styles.faqQuestion, open && { color: Colors.primary }]} numberOfLines={open ? undefined : 2}>
+                    {item.q}
+                  </Text>
+                  <Ionicons
+                    name={open ? 'chevron-up' : 'chevron-down'}
+                    size={15}
+                    color={open ? Colors.primary : Colors.outlineVariant}
+                  />
+                </TouchableOpacity>
+                {open && (
+                  <View style={styles.faqAnswer}>
+                    <Text style={styles.faqAnswerText}>{item.a}</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
+        {/* ── Conditions d'utilisation ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="document-text-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>DONNÉES & CONFIDENTIALITÉ</Text>
+        </View>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.helpToggle} onPress={() => setTermsExpanded(!termsExpanded)} activeOpacity={0.78}>
+            <Text style={styles.helpToggleText}>
+              {termsExpanded ? 'Masquer les conditions' : 'Lire les conditions d\'utilisation'}
+            </Text>
+            <Ionicons name={termsExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.onSurfaceVariant} />
+          </TouchableOpacity>
+          {termsExpanded && (
+            <View style={styles.termsBlock}>
+              {[
+                {
+                  icon: 'server-outline' as const,
+                  title: 'Données collectées',
+                  body: "Eatsy collecte votre nom, adresse e-mail, recettes, planning de repas, liste de courses, budget et données de garde-manger. Ces données sont nécessaires au bon fonctionnement de l'application.",
+                },
+                {
+                  icon: 'cloud-outline' as const,
+                  title: 'Stockage & sécurité',
+                  body: "Vos données sont stockées sur Firebase (Google LLC), chiffrées en transit (TLS) et au repos. L'infrastructure est certifiée ISO 27001 et SOC 2 Type II.",
+                },
+                {
+                  icon: 'people-outline' as const,
+                  title: 'Partage des données',
+                  body: "Aucune donnée personnelle n'est partagée, vendue ou cédée à des tiers à des fins commerciales. Eatsy n'utilise pas de traceurs publicitaires.",
+                },
+                {
+                  icon: 'trash-outline' as const,
+                  title: 'Droit à la suppression',
+                  body: "Vous pouvez demander la suppression définitive de votre compte et de toutes vos données à tout moment en nous contactant. La suppression est effective sous 30 jours.",
+                },
+                {
+                  icon: 'refresh-outline' as const,
+                  title: 'Mise à jour des conditions',
+                  body: "Ces conditions peuvent être mises à jour. Vous serez informé par notification en cas de changement significatif. L'utilisation continue de l'app vaut acceptation.",
+                },
+              ].map((section, idx, arr) => (
+                <View key={idx} style={[styles.termsSection, idx < arr.length - 1 && styles.rowBorder]}>
+                  <View style={styles.termsIconWrap}>
+                    <Ionicons name={section.icon} size={15} color={Colors.primary} />
+                  </View>
+                  <View style={styles.termsBody}>
+                    <Text style={styles.termsTitle}>{section.title}</Text>
+                    <Text style={styles.termsText}>{section.body}</Text>
+                  </View>
+                </View>
+              ))}
             </View>
-            <Text style={styles.sectionCardTitle}>{t('settings_account')}</Text>
-          </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
+          )}
+        </View>
+
+        {/* ── Compte ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="person-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>{t('settings_account').toUpperCase()}</Text>
+        </View>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.logoutRow} onPress={handleLogout} activeOpacity={0.78}>
+            <View style={styles.logoutIconWrap}>
+              <Ionicons name="log-out-outline" size={18} color={Colors.error} />
+            </View>
             <Text style={styles.logoutText}>{t('settings_logout')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.error} style={{ opacity: 0.5 }} />
           </TouchableOpacity>
         </View>
 
-        {/* About / Copyright */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionCardHeader}>
-            <View style={styles.sectionCardIcon}>
-              <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
+        {/* ── À propos ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="information-circle-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>{t('settings_copyright').toUpperCase()}</Text>
+        </View>
+        <View style={styles.card}>
+          <View style={[styles.row, styles.rowBorder]}>
+            <Text style={styles.rowLabel}>{t('settings_version')}</Text>
+            <View style={styles.versionBadge}>
+              <Text style={styles.versionText}>1.0.0</Text>
             </View>
-            <Text style={styles.sectionCardTitle}>{t('settings_copyright')}</Text>
           </View>
-          <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>{t('settings_version')}</Text>
-            <Text style={styles.aboutValue}>1.0.0</Text>
+          <View style={styles.aboutBlock}>
+            <Text style={styles.copyrightText}>{t('settings_copyright_text')}</Text>
+            <Text style={styles.copyrightSub}>Fait avec ❤️ pour les cuisiniers malins.</Text>
           </View>
-          <View style={styles.sep} />
-          <Text style={styles.copyrightText}>{t('settings_copyright_text')}</Text>
-          <Text style={styles.copyrightSub}>Fait avec ❤️ pour les cuisiniers malins.</Text>
         </View>
 
-        <View style={{ height: 8 }} />
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 };
 
 const createStyles = (C: typeof Colors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.surface },
-  topBar: {
+
+  // ── Header ──
+  headerBand: {
+    backgroundColor: C.primary, paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl + 8, overflow: 'hidden',
+    borderBottomLeftRadius: 36, borderBottomRightRadius: 36,
+  },
+  headerDecor1: {
+    position: 'absolute', width: 260, height: 260, borderRadius: 130,
+    backgroundColor: 'rgba(255,255,255,0.06)', top: -90, right: -70,
+  },
+  headerDecor2: {
+    position: 'absolute', width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.04)', bottom: -30, left: -30,
+  },
+  headerTopRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   backBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
   },
-  topBarTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
+  headerTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: '#fff' },
 
-  userCard: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+  profileBlock: { alignItems: 'center', gap: 6 },
+  avatarRing: {
+    width: 76, height: 76, borderRadius: 38,
+    borderWidth: 3, borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  avatar: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { fontFamily: FontFamily.headlineBold, fontSize: 26, color: '#fff' },
+  profileName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineSm, color: '#fff' },
+  profileEmail: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.7)' },
+
+  // ── Scroll ──
+  scroll: { paddingTop: Spacing.lg },
+
+  // ── Group label ──
+  groupLabel: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: Spacing.lg + 4, marginBottom: 6, marginTop: 4,
+  },
+  groupLabelText: {
+    fontFamily: FontFamily.bodyBold, fontSize: 10,
+    color: C.onSurfaceVariant, letterSpacing: 1,
+  },
+
+  // ── Card ──
+  card: {
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
-    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
+    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
+    paddingHorizontal: Spacing.md,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
   },
-  userAvatar: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: C.primary,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  userAvatarText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineMd, color: C.onPrimary },
-  userInfo: { flex: 1 },
-  userName: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
-  userEmail: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, marginTop: 2 },
 
-  sectionCard: {
-    marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
-    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl, padding: Spacing.lg,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
-  },
-  sectionCardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.md },
-  sectionCardIcon: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center',
-  },
-  sectionCardTitle: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.onSurface },
+  // ── Row ──
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: Spacing.md },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
+  rowLabel: { flex: 1, fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
 
-  optionsRow: { flexDirection: 'row', gap: Spacing.sm },
-  optionBtn: {
+  // ── Language ──
+  optionsRow: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.sm },
+  langBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: Spacing.md, borderRadius: BorderRadius.xl,
+    paddingVertical: 13, borderRadius: BorderRadius.xl,
     backgroundColor: C.surfaceContainerLow, borderWidth: 1.5, borderColor: 'transparent',
   },
-  optionBtnActive: { borderColor: C.primary, backgroundColor: `${C.primary}08` },
-  optionFlag: { fontSize: 18 },
-  optionLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
-  optionLabelActive: { color: C.primary },
+  langBtnActive: { borderColor: C.primary, backgroundColor: `${C.primary}08` },
+  langFlag: { fontSize: 18 },
+  langLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  langLabelActive: { color: C.primary },
 
-  currencyRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14,
-  },
-  currencyRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
-  currencyLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  currencySymbolWrap: {
-    width: 36, height: 36, borderRadius: 18,
+  // ── Currency ──
+  symbolBadge: {
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
   },
-  currencySymbolWrapActive: { backgroundColor: `${C.primary}15` },
-  currencySymbol: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
-  currencySymbolActive: { color: C.primary },
-  currencyLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
-  radioOuter: {
-    width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+  symbolBadgeActive: { backgroundColor: `${C.primary}15` },
+  symbolText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  symbolTextActive: { color: C.primary },
+  radio: {
+    width: 22, height: 22, borderRadius: 11, borderWidth: 2,
     borderColor: C.outlineVariant, alignItems: 'center', justifyContent: 'center',
   },
-  radioOuterActive: { borderColor: C.primary },
-  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.primary },
+  radioActive: { borderColor: C.primary },
+  radioDot: { width: 11, height: 11, borderRadius: 5.5, backgroundColor: C.primary },
 
-  logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
+  // ── Switch row ──
+  switchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm,
   },
-  logoutText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.error },
+  switchIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  switchBody: { flex: 1 },
+  switchLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  switchSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 1 },
 
-  darkModeRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: Spacing.xs,
-  },
-  darkModeLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  darkModeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
-  darkModeSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 1 },
-
-  notifTimes: {
-    marginTop: Spacing.sm, backgroundColor: C.surfaceContainerLow,
+  // ── Notifications ──
+  notifBlock: {
+    marginTop: Spacing.xs, backgroundColor: C.surfaceContainerLow,
     borderRadius: BorderRadius.xl, overflow: 'hidden',
+    marginBottom: Spacing.sm,
   },
-  notifTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, paddingHorizontal: Spacing.md },
-  notifTimeRowBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
-  notifTimeLabel: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
-  notifTimeValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.bodyMd, color: C.primary },
+  notifRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingVertical: 11, paddingHorizontal: Spacing.md,
+  },
+  notifLabel: { flex: 1, fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  timePill: {
+    backgroundColor: `${C.primary}15`, paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  timePillText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.labelMd, color: C.primary },
 
-  helpList: { marginTop: Spacing.xs },
-  helpItem: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.sm },
-  helpItemBorder: { borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh },
-  helpIcon: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: `${C.primary}10`, alignItems: 'center', justifyContent: 'center',
-    marginTop: 2,
+  // ── Help ──
+  helpToggle: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
   },
-  helpText: { flex: 1 },
+  helpToggleText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  helpList: { paddingBottom: Spacing.xs },
+  helpItem: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.sm + 2 },
+  helpIconWrap: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center', marginTop: 2,
+  },
+  helpBody: { flex: 1 },
   helpTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
   helpDesc: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 2, lineHeight: 18 },
 
-  aboutRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  aboutLabel: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
-  aboutValue: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
-  sep: { height: 1, backgroundColor: C.surfaceContainerHigh, marginVertical: 4 },
-  copyrightText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, paddingVertical: 4 },
-  copyrightSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, marginTop: 2 },
+  // ── Logout ──
+  logoutRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
+  logoutIconWrap: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: `${C.error}12`, alignItems: 'center', justifyContent: 'center',
+  },
+  logoutText: { flex: 1, fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.error },
+
+  // ── FAQ ──
+  faqRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  faqBullet: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: C.surfaceContainerHigh,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1,
+  },
+  faqBulletText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: C.onSurfaceVariant },
+  faqQuestion: { flex: 1, fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  faqAnswer: {
+    paddingHorizontal: Spacing.sm, paddingBottom: Spacing.md,
+    paddingLeft: 22 + Spacing.sm,
+  },
+  faqAnswerText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, lineHeight: 22 },
+
+  // ── Terms ──
+  termsBlock: { paddingBottom: Spacing.sm },
+  termsSection: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.md },
+  termsIconWrap: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, marginTop: 2,
+  },
+  termsBody: { flex: 1 },
+  termsTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface, marginBottom: 4 },
+  termsText: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant, lineHeight: 20 },
+
+  // ── Version / About ──
+  versionBadge: {
+    backgroundColor: `${C.primary}12`, paddingHorizontal: 10, paddingVertical: 4, borderRadius: BorderRadius.full,
+  },
+  versionText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
+  aboutBlock: { paddingVertical: Spacing.md, gap: 4 },
+  copyrightText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
+  copyrightSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
 });

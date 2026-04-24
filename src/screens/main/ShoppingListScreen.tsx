@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
-  Modal, TextInput, RefreshControl, Alert, Animated,
+  Modal, TextInput, RefreshControl, Alert, Animated, Share,
 } from 'react-native';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
-import { usePreferences , useColors } from '../../context/PreferencesContext';
+import { usePreferences, useColors } from '../../context/PreferencesContext';
 import {
   getShoppingItems, addShoppingItem, toggleShoppingItem,
   deleteShoppingItem, clearCheckedItems, generateShoppingItemsFromPlan,
@@ -21,6 +21,29 @@ import { ShoppingItem, WeekPlan } from '../../types';
 import { HeaderActions } from '../../components/HeaderActions';
 
 const UNITS = ['pcs', 'kg', 'g', 'L', 'cl', 'ml', 'sachet', 'boîte', 'bouteille'];
+
+const getCategoryStyle = (name: string): { icon: keyof typeof Ionicons.glyphMap; color: string } => {
+  const n = name.toLowerCase();
+  if (/tomat|carott|salade|légum|oignon|ail|poivron|courgett|champignon|épinar|brocoli|pomme|poire|banane|raisin|orange|citron|fraise|framboise|kiwi|mangue|ananas|fruit|laitue|roquette|concomb|haricot|asperge|petits pois/.test(n))
+    return { icon: 'leaf-outline', color: '#4CAF50' };
+  if (/poulet|boeuf|porc|agneau|veau|viande|steak|escalope|sauciss|jambon|lard|bacon|canard|dinde|charcuterie|côtelette|rôti/.test(n))
+    return { icon: 'restaurant-outline', color: '#FF6B35' };
+  if (/saumon|thon|cabillaud|truite|crevette|moule|poisson|fruit de mer|sardine|dorade/.test(n))
+    return { icon: 'water-outline', color: '#2196F3' };
+  if (/lait|fromage|yaourt|beurre|crème|œuf|oeuf|gruyère|emmental|camembert|mozzarella|brie|gouda/.test(n))
+    return { icon: 'egg-outline', color: '#FFC107' };
+  if (/pain|baguette|croissant|brioche|gâteau|biscuit|viennoiser|fougasse|muffin/.test(n))
+    return { icon: 'cafe-outline', color: '#795548' };
+  if (/pâtes|riz|farine|semoule|quinoa|lentille|pois chiche|céréale|blé|boulgour/.test(n))
+    return { icon: 'grid-outline', color: '#FF9800' };
+  if (/eau|jus|soda|bière|vin|café|thé|boisson|sirop|limonade/.test(n))
+    return { icon: 'wine-outline', color: '#9C27B0' };
+  if (/huile|vinaigre|sauce|ketchup|mayo|moutarde|sel|poivre|épice|herbe|curry|cumin|paprika/.test(n))
+    return { icon: 'flask-outline', color: '#607D8B' };
+  if (/savon|shampoo|gel|dentifrice|hygiène|lessive|nettoyant|éponge|désinfect/.test(n))
+    return { icon: 'sparkles-outline', color: '#00BCD4' };
+  return { icon: 'bag-outline', color: '#9E9E9E' };
+};
 
 export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
@@ -36,12 +59,13 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
   const [generating, setGenerating] = useState(false);
   const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
 
-  // form state
   const [formName, setFormName] = useState('');
   const [formQty, setFormQty] = useState('1');
   const [formUnit, setFormUnit] = useState('pcs');
   const [formPrice, setFormPrice] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   const loadItems = useCallback(async () => {
     if (!user) return;
@@ -54,6 +78,21 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
   }, [user]);
 
   useFocusEffect(useCallback(() => { loadItems(); }, [loadItems]));
+
+  const unchecked = items.filter((i) => !i.checked);
+  const checked = items.filter((i) => i.checked);
+  const totalCost = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+  const checkedCost = checked.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
+  const progress = items.length > 0 ? checked.length / items.length : 0;
+  const progressPct = Math.round(progress * 100);
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 500,
+      useNativeDriver: false,
+    }).start();
+  }, [progress]);
 
   const onRefresh = async () => { setRefreshing(true); await loadItems(); setRefreshing(false); };
 
@@ -83,18 +122,13 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
     const updated = !item.checked;
     setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, checked: updated } : i));
     await toggleShoppingItem(item.id, updated);
-
-    // When checking an item, offer to add to pantry
     if (updated && user) {
       Alert.alert(
         'Ajouter au stock ?',
         `Ajouter "${item.name}" (${item.quantity} ${item.unit}) à votre garde-manger ?`,
         [
           { text: 'Non', style: 'cancel' },
-          {
-            text: 'Ajouter au stock', onPress: () =>
-              addOrMergePantryItem(user.uid, item.name, item.quantity, item.unit),
-          },
+          { text: 'Ajouter au stock', onPress: () => addOrMergePantryItem(user.uid, item.name, item.quantity, item.unit) },
         ],
       );
     }
@@ -112,10 +146,20 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
     ]);
   };
 
-  const openGenerateModal = () => {
-    setGenerateMerge(true);
-    setGenerateModal(true);
+  const handleClearChecked = () => {
+    if (!user) return;
+    Alert.alert(t('shopping_clear_checked'), `${checked.length} article(s) ?`, [
+      { text: t('common_cancel'), style: 'cancel' },
+      {
+        text: t('common_delete'), style: 'destructive', onPress: async () => {
+          setItems((prev) => prev.filter((i) => !i.checked));
+          await clearCheckedItems(user.uid);
+        },
+      },
+    ]);
   };
+
+  const openGenerateModal = () => { setGenerateMerge(true); setGenerateModal(true); };
 
   const handleGenerate = async () => {
     if (!user || !weekPlan) return;
@@ -137,89 +181,132 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
     }
   };
 
-  const handleClearChecked = () => {
-    if (!user) return;
-    Alert.alert(t('shopping_clear_checked'), `${checked.length} article(s) ?`, [
-      { text: t('common_cancel'), style: 'cancel' },
-      {
-        text: t('common_delete'), style: 'destructive', onPress: async () => {
-          setItems((prev) => prev.filter((i) => !i.checked));
-          await clearCheckedItems(user.uid);
-        },
-      },
-    ]);
+  const handleShare = async () => {
+    const lines: string[] = ['🛒 Ma liste de courses\n'];
+    if (unchecked.length > 0) {
+      lines.push('📋 À acheter :');
+      unchecked.forEach((i) => {
+        const price = i.price > 0 ? ` (${formatCurrency(i.price * i.quantity)})` : '';
+        lines.push(`  ☐ ${i.name} — ${i.quantity} ${i.unit}${price}`);
+      });
+    }
+    if (checked.length > 0) {
+      lines.push('\n✅ Déjà dans le panier :');
+      checked.forEach((i) => lines.push(`  ✓ ${i.name} — ${i.quantity} ${i.unit}`));
+    }
+    if (totalCost > 0) lines.push(`\n💰 Total estimé : ${formatCurrency(totalCost)}`);
+    lines.push(`\n📊 ${checked.length}/${items.length} articles · ${progressPct}% fait`);
+    try {
+      await Share.share({ message: lines.join('\n'), title: 'Ma liste de courses' });
+    } catch (_) {}
   };
-
-  const unchecked = items.filter((i) => !i.checked);
-  const checked = items.filter((i) => i.checked);
-  const totalCost = items.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
-  const checkedCost = checked.reduce((s, i) => s + (i.price || 0) * (i.quantity || 1), 0);
-  const progress = items.length > 0 ? checked.length / items.length : 0;
-
-  const renderItem = (item: ShoppingItem, isLast: boolean) => (
-    <View key={item.id}>
-      <View style={[styles.itemRow, item.checked && styles.itemRowChecked]}>
-        <TouchableOpacity style={styles.checkboxArea} onPress={() => handleToggle(item)}>
-          <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
-            {item.checked && <Ionicons name="checkmark" size={13} color={Colors.onPrimary} />}
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.itemContent}>
-          <Text style={[styles.itemName, item.checked && styles.itemNameChecked]} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text style={styles.itemQty}>{item.quantity} {item.unit}</Text>
-        </View>
-
-        {item.price > 0 && (
-          <Text style={[styles.itemPrice, item.checked && styles.itemPriceFaded]}>
-            {formatCurrency(item.price * item.quantity)}
-          </Text>
-        )}
-
-        <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item)}>
-          <Ionicons name="trash-outline" size={16} color={Colors.outlineVariant} />
-        </TouchableOpacity>
-      </View>
-      {!isLast && <View style={styles.itemSep} />}
-    </View>
-  );
 
   const styles = createStyles(Colors);
   const { opacity, translateY } = useScreenEntrance();
+  const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
+  const renderItem = (item: ShoppingItem, isLast: boolean) => {
+    const { icon, color } = getCategoryStyle(item.name);
+    const activeColor = item.checked ? Colors.outlineVariant : color;
+    return (
+      <View key={item.id}>
+        <View style={[styles.itemRow, item.checked && styles.itemRowChecked]}>
+          <View style={[styles.itemStripe, { backgroundColor: activeColor }]} />
+          <View style={[styles.itemIconWrap, { backgroundColor: `${activeColor}18` }]}>
+            <Ionicons name={icon} size={13} color={activeColor} />
+          </View>
+          <TouchableOpacity style={styles.checkboxArea} onPress={() => handleToggle(item)}>
+            <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
+              {item.checked && <Ionicons name="checkmark" size={12} color={Colors.onPrimary} />}
+            </View>
+          </TouchableOpacity>
+          <View style={styles.itemContent}>
+            <Text style={[styles.itemName, item.checked && styles.itemNameChecked]} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.itemQty}>{item.quantity} {item.unit}</Text>
+          </View>
+          {item.price > 0 && (
+            <View style={[styles.pricePill, item.checked && styles.pricePillFaded]}>
+              <Text style={[styles.itemPrice, item.checked && styles.itemPriceFaded]}>
+                {formatCurrency(item.price * item.quantity)}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item)}>
+            <Ionicons name="trash-outline" size={15} color={Colors.outlineVariant} />
+          </TouchableOpacity>
+        </View>
+        {!isLast && <View style={styles.itemSep} />}
+      </View>
+    );
+  };
 
   return (
     <Animated.View style={[styles.screen, { opacity, transform: [{ translateY }] }]}>
-      {/* Header */}
+
+      {/* ── Header ── */}
       <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
-        <View style={styles.headerDecor} />
+        <View style={styles.headerDecor1} />
+        <View style={styles.headerDecor2} />
         <View style={styles.headerMain}>
           <View>
             <Text style={styles.title}>{t('shopping_title')}</Text>
             <Text style={styles.headerSub}>
-              {checked.length}/{items.length} {t('shopping_checked').toLowerCase()}
+              {items.length > 0
+                ? `${checked.length} sur ${items.length} article${items.length > 1 ? 's' : ''}`
+                : 'Liste vide'}
             </Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.generateBtn} onPress={openGenerateModal}>
+            <TouchableOpacity style={styles.headerBtn} onPress={openGenerateModal}>
               <Ionicons name="sparkles-outline" size={17} color="rgba(255,255,255,0.9)" />
             </TouchableOpacity>
             {checked.length > 0 && (
-              <TouchableOpacity style={styles.clearBtn} onPress={handleClearChecked}>
+              <TouchableOpacity style={styles.headerBtn} onPress={handleClearChecked}>
                 <Ionicons name="checkmark-done-outline" size={16} color="rgba(255,255,255,0.85)" />
               </TouchableOpacity>
             )}
             <HeaderActions navigation={navigation} />
           </View>
         </View>
+
         {items.length > 0 && (
-          <View style={styles.headerProgress}>
-            <View style={[styles.headerProgressFill, { width: `${progress * 100}%` }]} />
+          <View style={styles.progressSection}>
+            <View style={styles.progressLabelRow}>
+              <Text style={styles.progressLabelText}>Progression</Text>
+              <Text style={styles.progressPctText}>{progressPct}%</Text>
+            </View>
+            <View style={styles.progressTrack}>
+              <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+            </View>
           </View>
         )}
       </View>
 
+      {/* ── Floating summary strip ── */}
+      {items.length > 0 && (
+        <View style={styles.summaryStrip}>
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: Colors.primary }]}>{unchecked.length}</Text>
+            <Text style={styles.summaryLabel}>restants</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: Colors.secondary }]}>{checked.length}</Text>
+            <Text style={styles.summaryLabel}>dans le panier</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: Colors.tertiary }]}>
+              {totalCost > 0 ? formatCurrency(totalCost) : '—'}
+            </Text>
+            <Text style={styles.summaryLabel}>total estimé</Text>
+          </View>
+        </View>
+      )}
+
+      {/* ── Content ── */}
       {items.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconWrap}>
@@ -240,31 +327,23 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
         <FlatList
           data={[]}
           renderItem={null}
+          style={{ flex: 1 }}
           ListHeaderComponent={
             <>
-              {/* Summary cards */}
-              <View style={styles.summaryRow}>
-                <View style={[styles.summaryCard, { backgroundColor: `${Colors.primary}14` }]}>
-                  <Ionicons name="list-outline" size={18} color={Colors.primary} />
-                  <Text style={[styles.summaryValue, { color: Colors.primary }]}>{items.length}</Text>
-                  <Text style={styles.summaryLabel}>{t('shopping_articles')}</Text>
-                </View>
-                <View style={[styles.summaryCard, { backgroundColor: `${Colors.secondary}18` }]}>
-                  <Ionicons name="checkmark-done-outline" size={18} color={Colors.secondary} />
-                  <Text style={[styles.summaryValue, { color: Colors.secondary }]}>{checked.length}/{items.length}</Text>
-                  <Text style={styles.summaryLabel}>{t('shopping_checked')}</Text>
-                </View>
-                <View style={[styles.summaryCard, { backgroundColor: `${Colors.tertiary}14` }]}>
-                  <Ionicons name="cash-outline" size={18} color={Colors.tertiary} />
-                  <Text style={[styles.summaryValue, { color: Colors.tertiary }]}>{formatCurrency(totalCost)}</Text>
-                  <Text style={styles.summaryLabel}>{t('shopping_total')}</Text>
-                </View>
-              </View>
+              <View style={{ height: Spacing.md }} />
 
               {/* To buy */}
               {unchecked.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>{t('shopping_to_buy')} ({unchecked.length})</Text>
+                  <View style={styles.sectionHeader}>
+                    <View style={styles.sectionIconWrap}>
+                      <Ionicons name="cart-outline" size={13} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.sectionTitle}>{t('shopping_to_buy')}</Text>
+                    <View style={styles.sectionBadge}>
+                      <Text style={styles.sectionBadgeText}>{unchecked.length}</Text>
+                    </View>
+                  </View>
                   <View style={styles.itemsCard}>
                     {unchecked.map((item, idx) => renderItem(item, idx === unchecked.length - 1))}
                   </View>
@@ -274,8 +353,14 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
               {/* In cart */}
               {checked.length > 0 && (
                 <View style={styles.section}>
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionTitle}>{t('shopping_in_cart')} ({checked.length})</Text>
+                  <View style={styles.sectionHeader}>
+                    <View style={[styles.sectionIconWrap, { backgroundColor: `${Colors.secondary}15` }]}>
+                      <Ionicons name="checkmark-done-outline" size={13} color={Colors.secondary} />
+                    </View>
+                    <Text style={styles.sectionTitle}>{t('shopping_in_cart')}</Text>
+                    <View style={[styles.sectionBadge, { backgroundColor: `${Colors.secondary}15` }]}>
+                      <Text style={[styles.sectionBadgeText, { color: Colors.secondary }]}>{checked.length}</Text>
+                    </View>
                     <TouchableOpacity onPress={handleClearChecked}>
                       <Text style={styles.clearText}>{t('shopping_clear_checked')}</Text>
                     </TouchableOpacity>
@@ -292,7 +377,7 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
                 </View>
               )}
 
-              <View style={{ height: 100 }} />
+              <View style={{ height: 120 }} />
             </>
           }
           showsVerticalScrollIndicator={false}
@@ -300,14 +385,19 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
         />
       )}
 
-      {/* FAB */}
+      {/* ── FABs ── */}
       {items.length > 0 && (
-        <TouchableOpacity style={[styles.fab, { bottom: insets.bottom + 90 }]} onPress={openModal}>
-          <Ionicons name="add" size={26} color={Colors.onPrimary} />
-        </TouchableOpacity>
+        <View style={[styles.fabRow, { bottom: insets.bottom + 16 }]}>
+          <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={handleShare}>
+            <Ionicons name="share-social-outline" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.fab} onPress={openModal}>
+            <Ionicons name="add" size={26} color={Colors.onPrimary} />
+          </TouchableOpacity>
+        </View>
       )}
 
-      {/* Generate modal */}
+      {/* ── Generate modal ── */}
       <Modal visible={generateModal} animationType="slide" transparent onRequestClose={() => setGenerateModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
@@ -317,7 +407,6 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
             </View>
             <Text style={styles.modalTitle}>{t('shopping_generate_title')}</Text>
             <Text style={styles.generateDesc}>{t('shopping_generate_desc')}</Text>
-
             <View style={styles.generateToggle}>
               <TouchableOpacity
                 style={[styles.toggleOption, generateMerge && styles.toggleOptionActive]}
@@ -338,7 +427,6 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
                 </Text>
               </TouchableOpacity>
             </View>
-
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setGenerateModal(false)}>
                 <Text style={styles.modalCancelText}>{t('common_cancel')}</Text>
@@ -358,14 +446,12 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
         </View>
       </Modal>
 
-      {/* Add item modal */}
+      {/* ── Add item modal ── */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{t('shopping_new_item')}</Text>
-
-            {/* Name */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('shopping_item_name')} *</Text>
               <TextInput
@@ -377,8 +463,6 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
                 autoFocus
               />
             </View>
-
-            {/* Qty + Unit */}
             <View style={styles.inputRow}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={styles.inputLabel}>{t('shopping_quantity')}</Text>
@@ -396,8 +480,6 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
                 <ScrollableUnits value={formUnit} onSelect={setFormUnit} />
               </View>
             </View>
-
-            {/* Price */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>{t('shopping_price_unit')} ({t('common_optional')})</Text>
               <TextInput
@@ -409,8 +491,6 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
                 placeholderTextColor={Colors.outline}
               />
             </View>
-
-            {/* Actions */}
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}>
                 <Text style={styles.modalCancelText}>{t('common_cancel')}</Text>
@@ -431,23 +511,21 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
   );
 };
 
-const ScrollableUnits: React.FC<{ value: string; onSelect: (u: string) => void }> = ({ value, onSelect }) => {
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {UNITS.map((u) => (
-          <TouchableOpacity
-            key={u}
-            style={[unitStyles.chip, value === u && unitStyles.chipActive]}
-            onPress={() => onSelect(u)}
-          >
-            <Text style={[unitStyles.chipText, value === u && unitStyles.chipTextActive]}>{u}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
-  );
-};
+const ScrollableUnits: React.FC<{ value: string; onSelect: (u: string) => void }> = ({ value, onSelect }) => (
+  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      {UNITS.map((u) => (
+        <TouchableOpacity
+          key={u}
+          style={[unitStyles.chip, value === u && unitStyles.chipActive]}
+          onPress={() => onSelect(u)}
+        >
+          <Text style={[unitStyles.chipText, value === u && unitStyles.chipTextActive]}>{u}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  </ScrollView>
+);
 
 const unitStyles = StyleSheet.create({
   chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: Colors.surfaceContainerHigh },
@@ -458,34 +536,66 @@ const unitStyles = StyleSheet.create({
 
 const createStyles = (C: typeof Colors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.surface },
+
+  // ── Header ──
   headerBand: {
-    backgroundColor: C.primary, paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg + 16, overflow: 'hidden',
-    borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
+    backgroundColor: C.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg + 16,
+    overflow: 'hidden',
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  headerDecor: {
-    position: 'absolute', width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)', top: -50, right: -30,
+  headerDecor1: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -60, right: -40,
   },
-  headerMain: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm },
+  headerDecor2: {
+    position: 'absolute', width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -30, left: 20,
+  },
+  headerMain: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    marginBottom: Spacing.sm,
+  },
   title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
   headerSub: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  generateBtn: {
+  headerBtn: {
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
   },
-  clearBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
+  progressSection: { marginTop: Spacing.xs },
+  progressLabelRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6,
   },
-  addBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: C.surfaceContainerLowest, alignItems: 'center', justifyContent: 'center',
-  },
-  headerProgress: { height: 5, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 3, overflow: 'hidden' },
-  headerProgressFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 3 },
+  progressLabelText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.7)' },
+  progressPctText: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: '#fff' },
+  progressTrack: { height: 8, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 4, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 4 },
 
+  // ── Floating summary strip ──
+  summaryStrip: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.lg,
+    marginTop: -28,
+    backgroundColor: C.surfaceContainerLowest,
+    borderRadius: BorderRadius.xxl,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    zIndex: 1,
+  },
+  summaryItem: { flex: 1, alignItems: 'center', gap: 2 },
+  summaryValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg },
+  summaryLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, textAlign: 'center' },
+  summaryDivider: { width: 1, height: 28, backgroundColor: C.surfaceContainerHigh, alignSelf: 'center' },
+
+  // ── Empty state ──
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.sm },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 40,
@@ -499,36 +609,39 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   },
   emptyAddBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
   emptyAddBtnSecondary: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.xs,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: `${C.primary}14`, paddingHorizontal: Spacing.xl, paddingVertical: 13, borderRadius: BorderRadius.full,
   },
   emptyAddBtnSecondaryText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
 
-  summaryRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
-  summaryCard: {
-    flex: 1, alignItems: 'center', gap: 3,
-    borderRadius: BorderRadius.xl, padding: Spacing.md,
-  },
-  summaryValue: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: C.onSurface },
-  summaryLabel: { fontFamily: FontFamily.body, fontSize: 10, color: C.onSurfaceVariant, textAlign: 'center' },
-
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  progressTrack: { flex: 1, height: 5, backgroundColor: C.surfaceContainerHigh, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 3 },
-  progressPct: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, width: 34, textAlign: 'right' },
-
+  // ── Sections ──
   section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs },
-  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: C.onSurface, marginBottom: Spacing.xs },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.xs },
+  sectionIconWrap: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: `${C.primary}15`, alignItems: 'center', justifyContent: 'center',
+  },
+  sectionTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.titleLg, color: C.onSurface, flex: 1 },
+  sectionBadge: {
+    paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: BorderRadius.full, backgroundColor: `${C.primary}15`,
+  },
+  sectionBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.primary },
   clearText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.error },
 
+  // ── Items card ──
   itemsCard: {
     backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xl, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
-  itemsCardChecked: { opacity: 0.85 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: Spacing.md },
+  itemsCardChecked: { opacity: 0.82 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingRight: Spacing.md },
   itemRowChecked: { opacity: 0.55 },
+  itemStripe: { width: 3, alignSelf: 'stretch', borderRadius: 2, marginRight: Spacing.sm },
+  itemIconWrap: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', marginRight: Spacing.xs,
+  },
   checkboxArea: { marginRight: Spacing.sm },
   checkbox: {
     width: 22, height: 22, borderRadius: 11,
@@ -540,10 +653,18 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   itemName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
   itemNameChecked: { textDecorationLine: 'line-through', color: C.onSurfaceVariant },
   itemQty: { fontFamily: FontFamily.body, fontSize: FontSize.labelSm, color: C.onSurfaceVariant, marginTop: 1 },
-  itemPrice: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary, marginRight: 6 },
+  pricePill: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: BorderRadius.full, backgroundColor: `${C.primary}12`, marginRight: 6,
+  },
+  pricePillFaded: { backgroundColor: `${C.outlineVariant}20` },
+  itemPrice: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.primary },
   itemPriceFaded: { color: C.onSurfaceVariant },
   deleteBtn: { padding: 4 },
-  itemSep: { height: 1, backgroundColor: C.surfaceContainerHigh, marginLeft: Spacing.md + 22 + Spacing.sm },
+  itemSep: {
+    height: 1, backgroundColor: C.surfaceContainerHigh,
+    marginLeft: 3 + Spacing.sm + 28 + Spacing.xs + 22 + Spacing.sm,
+  },
 
   subtotalRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -553,13 +674,23 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   subtotalLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
   subtotalAmount: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleMd, color: C.primary },
 
-  fab: {
+  // ── FABs ──
+  fabRow: {
     position: 'absolute', right: Spacing.lg,
-    width: 52, height: 52, borderRadius: 26,
+    flexDirection: 'row', gap: Spacing.sm, alignItems: 'center',
+  },
+  fab: {
+    width: 54, height: 54, borderRadius: 27,
     backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
     shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
+  fabSecondary: {
+    width: 46, height: 46, borderRadius: 23,
+    backgroundColor: C.surfaceContainerLowest,
+    shadowColor: '#000', shadowOpacity: 0.1,
+  },
 
+  // ── Modals ──
   generateIconWrap: {
     width: 60, height: 60, borderRadius: 30,
     backgroundColor: `${C.primary}15`, alignItems: 'center', justifyContent: 'center',
@@ -569,18 +700,14 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
     fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant,
     textAlign: 'center', lineHeight: 22, marginBottom: Spacing.lg,
   },
-  generateToggle: {
-    flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg,
-  },
+  generateToggle: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
   toggleOption: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 11, borderRadius: BorderRadius.xl,
-    backgroundColor: C.surfaceContainerHigh,
+    paddingVertical: 11, borderRadius: BorderRadius.xl, backgroundColor: C.surfaceContainerHigh,
   },
   toggleOptionActive: { backgroundColor: C.primary },
   toggleOptionText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
   toggleOptionTextActive: { color: C.onPrimary },
-
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: C.surfaceContainerLowest,
