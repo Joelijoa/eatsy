@@ -9,6 +9,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../constants/typography';
 
+// Palette alignée sur le design system (vert primaire / vert secondaire / orange tertiaire)
+const SLIDE_COLORS = [
+  { color: Colors.primary,          bg: Colors.primaryFixed,      decor: Colors.primaryContainer },
+  { color: Colors.tertiary,         bg: '#fdf3e7',                decor: Colors.tertiaryContainer },
+  { color: Colors.secondary,        bg: Colors.secondaryContainer, decor: Colors.secondary },
+];
+
 export const ONBOARDING_KEY = 'eatsy_onboarding_done';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -17,27 +24,21 @@ const SLIDES = [
   {
     id: '1',
     icon:  'calendar-outline'    as const,
-    color: '#4CAF50',
-    bg:    '#F0FDF4',
-    decor: '#22C55E',
+    ...SLIDE_COLORS[0],
     title: 'Planifiez votre semaine',
     desc:  'Organisez petit-déjeuner, déjeuner et dîner pour chaque jour. Votre planning culinaire toujours sous la main.',
   },
   {
     id: '2',
     icon:  'wallet-outline'      as const,
-    color: '#F59E0B',
-    bg:    '#FFFBEB',
-    decor: '#F59E0B',
+    ...SLIDE_COLORS[1],
     title: 'Maîtrisez votre budget',
     desc:  'Suivez vos dépenses alimentaires semaine par semaine. Eatsy calcule le coût de chaque repas automatiquement.',
   },
   {
     id: '3',
     icon:  'restaurant-outline'  as const,
-    color: '#6366F1',
-    bg:    '#EEF2FF',
-    decor: '#818CF8',
+    ...SLIDE_COLORS[2],
     title: 'Cuisinez malin',
     desc:  'Générez votre liste de courses en un clic, gérez votre garde-manger et retrouvez toutes vos recettes en un endroit.',
   },
@@ -64,9 +65,9 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     setActiveIdx(idx);
   };
 
-  const finish = async () => {
-    await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
-    navigation.replace('Login');
+  const finish = () => {
+    AsyncStorage.setItem(ONBOARDING_KEY, 'true').catch(() => {});
+    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
   const isLast = activeIdx === SLIDES.length - 1;
@@ -105,7 +106,9 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <View style={{ width: 60 }} />
         <View style={styles.logoRow}>
-          <Text style={styles.logoText}>🍽</Text>
+          <View style={styles.logoIconWrap}>
+            <Ionicons name="restaurant" size={18} color={Colors.primary} />
+          </View>
           <Text style={styles.logoLabel}>Eatsy</Text>
         </View>
         <TouchableOpacity style={styles.skipBtn} onPress={finish}>
@@ -174,8 +177,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm,
   },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  logoText: { fontSize: 20 },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  logoIconWrap: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: `${Colors.primary}18`,
+    alignItems: 'center', justifyContent: 'center',
+  },
   logoLabel: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.primary },
   skipBtn: { paddingHorizontal: 12, paddingVertical: 6 },
   skipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },

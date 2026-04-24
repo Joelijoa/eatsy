@@ -143,8 +143,13 @@ export const AppNavigator: React.FC = () => {
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
+    const timeout = setTimeout(() => setOnboardingDone(false), 1500);
     AsyncStorage.getItem(ONBOARDING_KEY).then((val) => {
+      clearTimeout(timeout);
       setOnboardingDone(val === 'true');
+    }).catch(() => {
+      clearTimeout(timeout);
+      setOnboardingDone(false);
     });
   }, []);
 
