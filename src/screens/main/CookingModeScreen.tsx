@@ -66,7 +66,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
             setTimerRunning(false);
-            Alert.alert('Minuteur', 'Le temps est écoulé !');
+            Alert.alert(t('cooking_timer'), t('cooking_timer_done'));
             return 0;
           }
           return prev - 1;
@@ -81,7 +81,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
   if (!recipe) return (
     <View style={styles.loading}>
       <Ionicons name="restaurant-outline" size={44} color={Colors.inversePrimary} />
-      <Text style={styles.loadingText}>Chargement...</Text>
+      <Text style={styles.loadingText}>{t('common_loading')}</Text>
     </View>
   );
 
@@ -102,7 +102,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.recipeName} numberOfLines={1}>{recipe.name}</Text>
-          <Text style={styles.stepSubtitle}>Étape {currentStep + 1} sur {totalSteps}</Text>
+          <Text style={styles.stepSubtitle}>{t('cooking_step')} {currentStep + 1} {t('cooking_step_of')} {totalSteps}</Text>
         </View>
         <View style={styles.stepPill}>
           <Text style={styles.stepPillText}>{currentStep + 1}/{totalSteps}</Text>
@@ -119,12 +119,12 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
         <Animated.View style={[styles.stepCard, { opacity: stepOpacity, transform: [{ translateY: stepSlide }] }]}>
           <View style={styles.stepBadgeRow}>
             <View style={styles.stepBadge}>
-              <Text style={styles.stepBadgeText}>Étape {currentStep + 1}</Text>
+              <Text style={styles.stepBadgeText}>{t('cooking_step')} {currentStep + 1}</Text>
             </View>
             {currentStep === totalSteps - 1 && (
               <View style={styles.lastBadge}>
                 <Ionicons name="flag" size={12} color={Colors.inversePrimary} />
-                <Text style={styles.lastBadgeText}>Dernière étape</Text>
+                <Text style={styles.lastBadgeText}>{t('cooking_last_step')}</Text>
               </View>
             )}
           </View>
@@ -140,12 +140,12 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
             activeOpacity={0.7}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.inverseOnSurface} />
-            <Text style={styles.navBtnText}>Précédent</Text>
+            <Text style={styles.navBtnText}>{t('cooking_prev')}</Text>
           </TouchableOpacity>
 
           {currentStep < totalSteps - 1 ? (
             <TouchableOpacity style={styles.navBtnNext} onPress={goNext} activeOpacity={0.8}>
-              <Text style={styles.navBtnNextText}>Suivant</Text>
+              <Text style={styles.navBtnNextText}>{t('onboarding_next')}</Text>
               <Ionicons name="chevron-forward" size={20} color={Colors.onPrimary} />
             </TouchableOpacity>
           ) : (
@@ -154,7 +154,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
               activeOpacity={0.8}
               onPress={() => {
                 if (!user || !recipe?.ingredients?.length) {
-                  Alert.alert(t('cooking_deduct_title'), 'La recette est terminée.', [
+                  Alert.alert(t('cooking_deduct_title'), t('cooking_recipe_done'), [
                     { text: t('cooking_deduct_no'), onPress: () => navigation.goBack() },
                   ]);
                   return;
@@ -178,7 +178,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
               }}
             >
               <Ionicons name="checkmark-circle" size={20} color={Colors.onPrimary} />
-              <Text style={styles.finishBtnText}>Terminer</Text>
+              <Text style={styles.finishBtnText}>{t('cooking_finish')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -187,7 +187,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.timerCard}>
           <View style={styles.timerHeader}>
             <Ionicons name="timer-outline" size={18} color={Colors.inversePrimary} />
-            <Text style={styles.timerTitle}>Minuteur</Text>
+            <Text style={styles.timerTitle}>{t('cooking_timer')}</Text>
           </View>
           <Text style={styles.timerDisplay}>
             {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
@@ -206,7 +206,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
               activeOpacity={0.8}
             >
               <Ionicons name={timerRunning ? 'pause' : 'play'} size={17} color={Colors.onPrimary} />
-              <Text style={styles.timerBtnText}>{timerRunning ? 'Pause' : 'Démarrer'}</Text>
+              <Text style={styles.timerBtnText}>{timerRunning ? t('cooking_pause_timer') : t('cooking_start_timer')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.resetBtn}
@@ -220,7 +220,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Steps overview */}
         <View style={styles.overviewSection}>
-          <Text style={styles.overviewTitle}>Toutes les étapes</Text>
+          <Text style={styles.overviewTitle}>{t('cooking_all_steps')}</Text>
           {recipe.instructions.map((step, idx) => {
             const isDone = idx < currentStep;
             const isActive = idx === currentStep;
@@ -316,7 +316,7 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
     flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: C.primaryContainer, borderRadius: BorderRadius.full, paddingVertical: 14,
   },
-  finishBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimary },
+  finishBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onPrimaryContainer },
 
   timerCard: {
     marginHorizontal: Spacing.lg, backgroundColor: 'rgba(255,255,255,0.06)',

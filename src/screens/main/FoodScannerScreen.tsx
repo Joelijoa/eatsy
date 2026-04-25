@@ -7,7 +7,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { useColors } from '../../context/PreferencesContext';
+import { useColors, usePreferences } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { addShoppingItem } from '../../services/shoppingListService';
@@ -36,6 +36,7 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const Colors = useColors();
+  const { t } = usePreferences();
   const styles = createStyles(Colors);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -60,7 +61,7 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
         const p = json.product;
         setProduct({
           barcode: data,
-          name: p.product_name ?? 'Produit inconnu',
+          name: p.product_name ?? t('scanner_unknown'),
           brand: p.brands,
           energy: p.nutriments?.['energy-kcal_100g'] ? `${p.nutriments['energy-kcal_100g']} kcal` : undefined,
           proteins: p.nutriments?.proteins_100g ? `${p.nutriments.proteins_100g}g` : undefined,
@@ -71,13 +72,13 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
         setQty('1');
         setUnit('pcs');
       } else {
-        Alert.alert('Produit non trouvé', `Code-barres : ${data}`, [
-          { text: 'Rescanner', onPress: () => setScanned(false) },
-          { text: 'Fermer', onPress: () => navigation.goBack() },
+        Alert.alert(t('scanner_product_not_found'), `${t('scanner_barcode_label')} : ${data}`, [
+          { text: t('scanner_rescan'), onPress: () => setScanned(false) },
+          { text: t('scanner_close'), onPress: () => navigation.goBack() },
         ]);
       }
     } catch {
-      Alert.alert('Erreur réseau', 'Impossible de récupérer les informations produit.');
+      Alert.alert(t('scanner_network_error'), t('scanner_network_error_msg'));
       setScanned(false);
     } finally {
       setLoading(false);
@@ -89,9 +90,9 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
     setSaving('cart');
     await addShoppingItem(user.uid, { name: product.name, quantity: parseFloat(qty) || 1, unit, price: 0 });
     setSaving(null);
-    Alert.alert('Ajouté aux courses', `"${product.name}" ajouté à votre liste de courses.`, [
-      { text: 'Scanner un autre', onPress: () => { setScanned(false); setProduct(null); } },
-      { text: 'Fermer', onPress: () => navigation.goBack() },
+    Alert.alert(t('scanner_added_to_cart'), `"${product.name}" ${t('scanner_added_to_cart_msg')}`, [
+      { text: t('scanner_scan_another'), onPress: () => { setScanned(false); setProduct(null); } },
+      { text: t('scanner_close'), onPress: () => navigation.goBack() },
     ]);
   };
 
@@ -100,9 +101,9 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
     setSaving('stock');
     await addOrMergePantryItem(user.uid, product.name, parseFloat(qty) || 1, unit);
     setSaving(null);
-    Alert.alert('Ajouté au stock', `"${product.name}" ajouté à votre garde-manger.`, [
-      { text: 'Scanner un autre', onPress: () => { setScanned(false); setProduct(null); } },
-      { text: 'Fermer', onPress: () => navigation.goBack() },
+    Alert.alert(t('scanner_added_to_stock'), `"${product.name}" ${t('scanner_added_to_stock_msg')}`, [
+      { text: t('scanner_scan_another'), onPress: () => { setScanned(false); setProduct(null); } },
+      { text: t('scanner_close'), onPress: () => navigation.goBack() },
     ]);
   };
 
@@ -110,9 +111,9 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
   if (!permission.granted) return (
     <View style={[styles.screen, styles.center]}>
       <Ionicons name="camera-outline" size={48} color={Colors.primary} />
-      <Text style={styles.permText}>Autorisation caméra requise</Text>
+      <Text style={styles.permText}>{t('scanner_permission')}</Text>
       <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
-        <Text style={styles.permBtnText}>Autoriser</Text>
+        <Text style={styles.permBtnText}>{t('scanner_allow')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -128,13 +129,28 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
           onBarcodeScanned={scanned ? undefined : handleBarcode}
         />
         <View style={styles.overlay}>
-          <TouchableOpacity style={[styles.closeBtn, { top: insets.top + 12 }]} onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={22} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.scanFrame} />
-          {loading
-            ? <ActivityIndicator size="large" color="#fff" style={styles.scanHint} />
-            : <Text style={styles.scanHint}>Pointez vers un code-barres</Text>}
+          {/* Top bar */}
+          <View style={[styles.overlayTopBar, { paddingTop: insets.top + 12 }]}>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
+              <Ionicons name="close" size={22} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.overlayTitle}>{t('scanner_camera_title')}</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {/* Scan frame */}
+          <View style={styles.scanFrameWrap}>
+            <View style={styles.scanFrame}>
+              {/* Corner brackets */}
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
+            </View>
+            {loading
+              ? <ActivityIndicator size="large" color="#fff" style={styles.scanHint} />
+              : <Text style={styles.scanHint}>EAN-8 · EAN-13 · QR</Text>}
+          </View>
         </View>
       </View>
     );
@@ -142,10 +158,10 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
 
   /* ── Result view ── */
   const nutriRows = [
-    { label: 'Énergie', value: product.energy, icon: 'flash-outline' as const, color: Colors.tertiary },
-    { label: 'Protéines', value: product.proteins, icon: 'barbell-outline' as const, color: Colors.primary },
-    { label: 'Glucides', value: product.carbs, icon: 'leaf-outline' as const, color: Colors.secondary },
-    { label: 'Lipides', value: product.fat, icon: 'water-outline' as const, color: '#60a5fa' },
+    { label: t('scanner_energy'),   value: product.energy,   icon: 'flash-outline'   as const, color: Colors.tertiary },
+    { label: t('scanner_proteins'), value: product.proteins, icon: 'barbell-outline' as const, color: Colors.primary },
+    { label: t('scanner_carbs'),    value: product.carbs,    icon: 'leaf-outline'    as const, color: Colors.secondary },
+    { label: t('scanner_fat'),      value: product.fat,      icon: 'water-outline'   as const, color: '#60a5fa' },
   ].filter((r) => r.value);
 
   return (
@@ -154,6 +170,7 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
       {/* Green header */}
       <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerDecor} />
+        <View style={styles.headerDecor2} />
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={20} color="#fff" />
@@ -180,7 +197,7 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
         {/* Nutrition card */}
         {nutriRows.length > 0 && (
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Valeurs nutritionnelles / 100g</Text>
+            <Text style={styles.cardLabel}>{t('scanner_nutrition')}</Text>
             {nutriRows.map((row) => (
               <View key={row.label} style={styles.nutriRow}>
                 <View style={[styles.nutriIcon, { backgroundColor: `${row.color}18` }]}>
@@ -195,7 +212,7 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Qty + unit */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Quantité</Text>
+          <Text style={styles.cardLabel}>{t('scanner_quantity')}</Text>
           <View style={styles.qtyRow}>
             <TextInput
               style={styles.qtyField}
@@ -218,9 +235,15 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Barcode ref */}
+        <View style={styles.barcodeRow}>
+          <Ionicons name="barcode-outline" size={14} color={Colors.outlineVariant} />
+          <Text style={styles.barcodeText}>{product.barcode}</Text>
+        </View>
+
         <TouchableOpacity style={styles.rescanRow} onPress={() => { setScanned(false); setProduct(null); }}>
-          <Ionicons name="barcode-outline" size={16} color={Colors.onSurfaceVariant} />
-          <Text style={styles.rescanText}>Scanner un autre produit</Text>
+          <Ionicons name="scan-outline" size={16} color={Colors.primary} />
+          <Text style={styles.rescanText}>{t('scanner_rescan_product')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -234,7 +257,7 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
           {saving === 'cart'
             ? <ActivityIndicator size="small" color={Colors.primary} />
             : <Ionicons name="cart-outline" size={20} color={Colors.primary} />}
-          <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Courses</Text>
+          <Text style={[styles.actionBtnText, { color: Colors.primary }]}>{t('scanner_cart_btn')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -245,7 +268,7 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
           {saving === 'stock'
             ? <ActivityIndicator size="small" color={Colors.onPrimary} />
             : <Ionicons name="cube-outline" size={20} color={Colors.onPrimary} />}
-          <Text style={[styles.actionBtnText, { color: Colors.onPrimary }]}>Mon Stock</Text>
+          <Text style={[styles.actionBtnText, { color: Colors.onPrimary }]}>{t('scanner_stock_btn')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -261,19 +284,41 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   camera: { flex: 1 },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  overlayTopBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg,
+  },
+  overlayTitle: {
+    fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: '#fff',
   },
   closeBtn: {
-    position: 'absolute', right: Spacing.lg,
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
   },
-  scanFrame: {
-    width: 260, height: 170, borderWidth: 2.5, borderColor: C.inversePrimary,
-    borderRadius: BorderRadius.xl, backgroundColor: 'transparent',
-    shadowColor: C.inversePrimary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 14,
+  scanFrameWrap: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
   },
-  scanHint: { marginTop: Spacing.xl, fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: '#fff' },
+  scanFrame: {
+    width: 270, height: 175,
+    backgroundColor: 'transparent',
+  },
+  corner: {
+    position: 'absolute', width: 24, height: 24,
+    borderColor: C.inversePrimary, borderWidth: 3,
+  },
+  cornerTL: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
+  cornerTR: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
+  cornerBL: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
+  cornerBR: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
+  scanHint: { marginTop: Spacing.lg, fontFamily: FontFamily.bodyMedium, fontSize: FontSize.labelMd, color: 'rgba(255,255,255,0.7)' },
+
+  barcodeRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  barcodeText: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.outlineVariant },
 
   /* Header */
   headerBand: {
@@ -282,7 +327,11 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   },
   headerDecor: {
     position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.06)', top: -60, right: -30,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -60, right: -30,
+  },
+  headerDecor2: {
+    position: 'absolute', width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -30, left: -20,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   backBtn: {
@@ -338,7 +387,7 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: Spacing.sm,
   },
-  rescanText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
+  rescanText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
 
   /* Fixed actions */
   actions: {

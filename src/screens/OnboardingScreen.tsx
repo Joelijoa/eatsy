@@ -1,13 +1,14 @@
 import React, { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Dimensions, Animated, Platform,
+  Dimensions, Animated, Platform, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../constants/typography';
+import { usePreferences } from '../context/PreferencesContext';
 
 // Palette alignée sur le design system (vert primaire / vert secondaire / orange tertiaire)
 const SLIDE_COLORS = [
@@ -20,34 +21,22 @@ export const ONBOARDING_KEY = 'eatsy_onboarding_done';
 
 const { width: W, height: H } = Dimensions.get('window');
 
-const SLIDES = [
-  {
-    id: '1',
-    icon:  'calendar-outline'    as const,
-    ...SLIDE_COLORS[0],
-    title: 'Planifiez votre semaine',
-    desc:  'Organisez petit-déjeuner, déjeuner et dîner pour chaque jour. Votre planning culinaire toujours sous la main.',
-  },
-  {
-    id: '2',
-    icon:  'wallet-outline'      as const,
-    ...SLIDE_COLORS[1],
-    title: 'Maîtrisez votre budget',
-    desc:  'Suivez vos dépenses alimentaires semaine par semaine. Eatsy calcule le coût de chaque repas automatiquement.',
-  },
-  {
-    id: '3',
-    icon:  'restaurant-outline'  as const,
-    ...SLIDE_COLORS[2],
-    title: 'Cuisinez malin',
-    desc:  'Générez votre liste de courses en un clic, gérez votre garde-manger et retrouvez toutes vos recettes en un endroit.',
-  },
+const SLIDES_BASE = [
+  { id: '1', icon: 'calendar-outline'   as const, ...SLIDE_COLORS[0], tk: 1 },
+  { id: '2', icon: 'wallet-outline'     as const, ...SLIDE_COLORS[1], tk: 2 },
+  { id: '3', icon: 'restaurant-outline' as const, ...SLIDE_COLORS[2], tk: 3 },
 ];
 
 type Props = { navigation: any };
 
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { t } = usePreferences();
+  const SLIDES = SLIDES_BASE.map((s) => ({
+    ...s,
+    title: t(`onboarding_slide${s.tk}_title` as any),
+    desc:  t(`onboarding_slide${s.tk}_desc`  as any),
+  }));
   const [activeIdx, setActiveIdx] = useState(0);
   const flatRef = useRef<FlatList>(null);
   const dotAnims = useRef(SLIDES.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))).current;
@@ -107,12 +96,12 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ width: 60 }} />
         <View style={styles.logoRow}>
           <View style={styles.logoIconWrap}>
-            <Ionicons name="restaurant" size={18} color={Colors.primary} />
+            <Image source={require('../../assets/icon2.0.png')} style={styles.logoIconImage} />
           </View>
           <Text style={styles.logoLabel}>Eatsy</Text>
         </View>
         <TouchableOpacity style={styles.skipBtn} onPress={finish}>
-          <Text style={styles.skipText}>Passer</Text>
+          <Text style={styles.skipText}>{t('onboarding_skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -155,7 +144,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
           onPress={isLast ? finish : () => goTo(activeIdx + 1)}
           activeOpacity={0.85}
         >
-          <Text style={styles.ctaText}>{isLast ? 'Commencer' : 'Suivant'}</Text>
+          <Text style={styles.ctaText}>{isLast ? t('onboarding_start') : t('onboarding_next')}</Text>
           <Ionicons
             name={isLast ? 'arrow-forward-circle-outline' : 'chevron-forward'}
             size={20}
@@ -182,7 +171,9 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 10,
     backgroundColor: `${Colors.primary}18`,
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
   },
+  logoIconImage: { width: 32, height: 32 },
   logoLabel: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.titleLg, color: Colors.primary },
   skipBtn: { paddingHorizontal: 12, paddingVertical: 6 },
   skipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.bodyMd, color: Colors.onSurfaceVariant },

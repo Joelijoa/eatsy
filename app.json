@@ -4,12 +4,12 @@
     "slug": "eatsy",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon2.0.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon2.0.png",
       "resizeMode": "contain",
-      "backgroundColor": "#f9f9f6"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
@@ -17,8 +17,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#006b1b"
+        "foregroundImage": "./assets/icon2.0.png",
+        "backgroundColor": "#ffffff"
       },
       "package": "com.eatsy.app"
     },

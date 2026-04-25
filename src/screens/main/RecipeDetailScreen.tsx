@@ -21,6 +21,27 @@ const WELLNESS_CONFIG: Record<WellnessType, { label: string; color: string; bg: 
   indulgent: { label: 'Plaisir',   color: Colors.error,    bg: `${Colors.error}18`,               icon: 'heart-outline' },
 };
 
+const getCategoryStyle = (name: string): { icon: keyof typeof Ionicons.glyphMap; color: string } => {
+  const n = name.toLowerCase();
+  if (/tomat|carott|salade|légum|oignon|ail|poivron|courgett|champignon|épinar|brocoli|pomme|poire|banane|raisin|orange|citron|fraise|framboise|kiwi|mangue|ananas|fruit|laitue|roquette|concomb|haricot|asperge|petits pois/.test(n))
+    return { icon: 'leaf-outline', color: '#4CAF50' };
+  if (/poulet|boeuf|porc|agneau|veau|viande|steak|escalope|sauciss|jambon|lard|bacon|canard|dinde|charcuterie|côtelette|rôti/.test(n))
+    return { icon: 'restaurant-outline', color: '#FF6B35' };
+  if (/saumon|thon|cabillaud|truite|crevette|moule|poisson|fruit de mer|sardine|dorade/.test(n))
+    return { icon: 'water-outline', color: '#2196F3' };
+  if (/lait|fromage|yaourt|beurre|crème|œuf|oeuf|gruyère|emmental|camembert|mozzarella|brie|gouda/.test(n))
+    return { icon: 'egg-outline', color: '#FFC107' };
+  if (/pain|baguette|croissant|brioche|gâteau|biscuit|viennoiser|fougasse|muffin/.test(n))
+    return { icon: 'cafe-outline', color: '#795548' };
+  if (/pâtes|riz|farine|semoule|quinoa|lentille|pois chiche|céréale|blé|boulgour/.test(n))
+    return { icon: 'grid-outline', color: '#FF9800' };
+  if (/eau|jus|soda|bière|vin|café|thé|boisson|sirop|limonade/.test(n))
+    return { icon: 'wine-outline', color: '#9C27B0' };
+  if (/huile|vinaigre|sauce|ketchup|mayo|moutarde|sel|poivre|épice|herbe|curry|cumin|paprika/.test(n))
+    return { icon: 'flask-outline', color: '#607D8B' };
+  return { icon: 'ellipse-outline', color: Colors.outline };
+};
+
 type Props = { navigation: any; route: any };
 
 export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
@@ -234,10 +255,12 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                 const info = stockInfo.find((s) => s.ingredient.id === ing.id);
                 const statusColor = info?.status === 'ok' ? Colors.primary : info?.status === 'partial' ? Colors.tertiary : Colors.outlineVariant;
                 const statusIcon: keyof typeof Ionicons.glyphMap = info?.status === 'ok' ? 'checkmark-circle' : info?.status === 'partial' ? 'alert-circle' : 'ellipse-outline';
+                const { icon: catIcon, color: catColor } = getCategoryStyle(ing.name);
+                const isLast = idx === recipe.ingredients.length - 1;
                 return (
-                  <View key={idx} style={styles.ingredientRow}>
-                    <View style={styles.ingNumber}>
-                      <Text style={styles.ingNumberText}>{idx + 1}</Text>
+                  <View key={idx} style={[styles.ingredientRow, isLast && styles.ingredientRowLast]}>
+                    <View style={[styles.ingIconWrap, { backgroundColor: `${catColor}18` }]}>
+                      <Ionicons name={catIcon} size={16} color={catColor} />
                     </View>
                     <View style={styles.ingInfo}>
                       <Text style={styles.ingName}>{ing.name}</Text>
@@ -245,7 +268,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                         <Text style={styles.ingQty}>{ing.quantity} {ing.unit}</Text>
                         {info && (
                           <View style={styles.ingStockBadge}>
-                            <Ionicons name={statusIcon} size={12} color={statusColor} />
+                            <Ionicons name={statusIcon} size={11} color={statusColor} />
                             <Text style={[styles.ingStockText, { color: statusColor }]}>
                               {info.status === 'ok'
                                 ? displayQty(info.availableQty, info.availableUnit)
@@ -438,11 +461,11 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.surfaceContainerHigh,
   },
-  ingNumber: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+  ingredientRowLast: { borderBottomWidth: 0 },
+  ingIconWrap: {
+    width: 36, height: 36, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  ingNumberText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.labelSm, color: C.onSurfaceVariant },
   ingInfo: { flex: 1 },
   ingName: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
   ingQtyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 1 },

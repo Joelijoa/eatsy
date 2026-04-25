@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Animated } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,11 +28,44 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const [expandedFaq, setExpandedFaq]     = useState<number | null>(null);
   const [termsExpanded, setTermsExpanded] = useState(false);
   const [notifSettings, setNotifSettings] = useState<MealNotificationSettings | null>(null);
+  const [biometricEnabled, setBiometricEnabled]   = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricLabel, setBiometricLabel]         = useState('Biométrie');
   const { opacity, translateY } = useScreenEntrance();
 
   useEffect(() => {
     loadNotificationSettings().then(setNotifSettings);
+    // Check biometric hardware
+    Promise.all([
+      LocalAuthentication.hasHardwareAsync(),
+      LocalAuthentication.isEnrolledAsync(),
+      LocalAuthentication.supportedAuthenticationTypesAsync(),
+    ]).then(([hasHW, enrolled, types]) => {
+      const available = hasHW && enrolled;
+      setBiometricAvailable(available);
+      if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+        setBiometricLabel('Face ID');
+      } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+        setBiometricLabel('Empreinte digitale');
+      } else {
+        setBiometricLabel('Code PIN');
+      }
+    });
+    AsyncStorage.getItem('eatsy_biometric_lock').then(v => setBiometricEnabled(v === 'true')).catch(() => {});
   }, []);
+
+  const toggleBiometric = async (value: boolean) => {
+    if (value) {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Confirmer l\'activation',
+        fallbackLabel: 'Code PIN',
+        disableDeviceFallback: false,
+      });
+      if (!result.success) return;
+    }
+    setBiometricEnabled(value);
+    await AsyncStorage.setItem('eatsy_biometric_lock', value ? 'true' : 'false').catch(() => {});
+  };
 
   const toggleNotifications = async (enabled: boolean) => {
     if (!notifSettings) return;
@@ -277,6 +312,34 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </>
         )}
+
+        {/* ── Sécurité ── */}
+        <View style={styles.groupLabel}>
+          <Ionicons name="shield-checkmark-outline" size={13} color={Colors.onSurfaceVariant} />
+          <Text style={styles.groupLabelText}>SÉCURITÉ</Text>
+        </View>
+        <View style={styles.card}>
+          <View style={[styles.switchRow, !biometricAvailable && { opacity: 0.45 }]}>
+            <View style={[styles.switchIcon, { backgroundColor: `${Colors.primary}15` }]}>
+              <Ionicons name="finger-print" size={18} color={Colors.primary} />
+            </View>
+            <View style={styles.switchBody}>
+              <Text style={styles.switchLabel}>Verrouillage {biometricLabel}</Text>
+              <Text style={styles.switchSub}>
+                {biometricAvailable
+                  ? 'Verrouille l\'app après 30 s en arrière-plan'
+                  : 'Non disponible sur cet appareil'}
+              </Text>
+            </View>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={toggleBiometric}
+              disabled={!biometricAvailable}
+              trackColor={{ false: Colors.surfaceContainerHigh, true: Colors.primary }}
+              thumbColor={biometricEnabled ? Colors.onPrimary : Colors.surface}
+            />
+          </View>
+        </View>
 
         {/* ── Aide ── */}
         <View style={styles.groupLabel}>

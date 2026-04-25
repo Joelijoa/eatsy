@@ -1,10 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Image, Animated } from 'react-native';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences , useColors } from '../../context/PreferencesContext';
@@ -12,11 +11,7 @@ import { getRecipes, getCategories } from '../../services/recipeService';
 import { Recipe, Category, WellnessType } from '../../types';
 import { HeaderActions } from '../../components/HeaderActions';
 
-const WELLNESS_COLOR: Record<WellnessType, string> = {
-  balanced: Colors.primary,
-  quick:    Colors.tertiary,
-  indulgent:Colors.error,
-};
+
 const WELLNESS_ICON: Record<WellnessType, keyof typeof Ionicons.glyphMap> = {
   balanced: 'leaf-outline',
   quick:    'flash-outline',
@@ -30,11 +25,21 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
   const { t, formatCurrency } = usePreferences();
   const insets = useSafeAreaInsets();
   const Colors = useColors();
+  const WELLNESS_COLOR: Record<WellnessType, string> = {
+    balanced: Colors.primary,
+    quick:    Colors.tertiary,
+    indulgent: Colors.error,
+  };
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeWellness, setActiveWellness] = useState<WellnessType | null>(null);
+
+  const flatListRef = useRef<React.ElementRef<typeof FlatList>>(null);
+  useFocusEffect(useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, []));
 
   useFocusEffect(
     useCallback(() => {
@@ -120,6 +125,7 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
       {/* Header */}
       <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerDecor} />
+        <View style={styles.headerDecor2} />
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>{t('recipes_title')}</Text>
@@ -184,6 +190,7 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
       </ScrollView>
 
       <FlatList
+        ref={flatListRef}
         data={filtered}
         keyExtractor={(r) => r.id}
         renderItem={renderRecipe}
@@ -202,15 +209,13 @@ export const RecipesScreen: React.FC<Props> = ({ navigation }) => {
         }
       />
 
-      {/* FABs */}
-      <View style={[styles.fabRow, { bottom: insets.bottom + 0 }]}>
-        <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={() => navigation.navigate('FoodScanner')}>
-          <Ionicons name="barcode-outline" size={22} color={Colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddRecipe', {})}>
-          <Ionicons name="add" size={26} color={Colors.onPrimary} />
-        </TouchableOpacity>
-      </View>
+      {/* FAB */}
+      <TouchableOpacity
+        style={[styles.fab, { bottom: insets.bottom + 16, right: Spacing.lg }]}
+        onPress={() => navigation.navigate('AddRecipe', {})}
+      >
+        <Ionicons name="add" size={26} color={Colors.onPrimary} />
+      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -224,7 +229,11 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   },
   headerDecor: {
     position: 'absolute', width: 220, height: 220, borderRadius: 110,
-    backgroundColor: 'rgba(255,255,255,0.06)', top: -80, right: -50,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -80, right: -50,
+  },
+  headerDecor2: {
+    position: 'absolute', width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -30, left: -30,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm, color: '#fff' },
@@ -272,14 +281,9 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   emptyIconWrap: { width: 70, height: 70, borderRadius: 35, backgroundColor: `${C.primary}12`, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontFamily: FontFamily.headline, fontSize: FontSize.headlineSm, color: C.onSurface },
   emptyDesc: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
-  fabRow: { position: 'absolute', right: Spacing.lg, flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   fab: {
-    width: 54, height: 54, borderRadius: 27,
+    position: 'absolute', width: 54, height: 54, borderRadius: 27,
     backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
     shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
-  },
-  fabSecondary: {
-    backgroundColor: C.surfaceContainerLowest,
-    shadowColor: '#000', shadowOpacity: 0.1,
   },
 });

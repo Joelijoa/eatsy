@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Modal, TextInput, Alert, ScrollView, Animated,
@@ -60,6 +60,11 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
   const [formQty, setFormQty]       = useState('');
   const [formUnit, setFormUnit]     = useState('g');
   const [saving, setSaving]         = useState(false);
+
+  const flatListRef = useRef<React.ElementRef<typeof FlatList>>(null);
+  useFocusEffect(useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, []));
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -251,6 +256,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={filtered}
           keyExtractor={(i) => i.id}
           renderItem={renderItem}

@@ -65,7 +65,12 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
   const [formPrice, setFormPrice] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim  = useRef(new Animated.Value(0)).current;
+  const flatListRef   = useRef<React.ElementRef<typeof FlatList>>(null);
+
+  useFocusEffect(useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, []));
 
   const loadItems = useCallback(async () => {
     if (!user) return;
@@ -325,6 +330,7 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={[]}
           renderItem={null}
           style={{ flex: 1 }}
@@ -386,16 +392,19 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
       )}
 
       {/* ── FABs ── */}
-      {items.length > 0 && (
-        <View style={[styles.fabRow, { bottom: insets.bottom + 16 }]}>
+      <View style={[styles.fabRow, { bottom: insets.bottom + 16 }]}>
+        <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={() => navigation.navigate('FoodScanner')}>
+          <Ionicons name="barcode-outline" size={22} color={Colors.primary} />
+        </TouchableOpacity>
+        {items.length > 0 && (
           <TouchableOpacity style={[styles.fab, styles.fabSecondary]} onPress={handleShare}>
             <Ionicons name="share-social-outline" size={20} color={Colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.fab} onPress={openModal}>
-            <Ionicons name="add" size={26} color={Colors.onPrimary} />
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+        <TouchableOpacity style={styles.fab} onPress={openModal}>
+          <Ionicons name="add" size={26} color={Colors.onPrimary} />
+        </TouchableOpacity>
+      </View>
 
       {/* ── Generate modal ── */}
       <Modal visible={generateModal} animationType="slide" transparent onRequestClose={() => setGenerateModal(false)}>

@@ -45,6 +45,11 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [budgetInput, setBudgetInput] = useState('');
 
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const scrollRef    = useRef<React.ElementRef<typeof ScrollView>>(null);
+
+  useFocusEffect(useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []));
   const { opacity, translateY } = useScreenEntrance();
 
   const loadData = useCallback(async () => {
@@ -220,6 +225,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
       {/* ── Scrollable content ── */}
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}

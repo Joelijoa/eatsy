@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Animated, AppState, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { OnboardingScreen, ONBOARDING_KEY } from '../screens/OnboardingScreen';
+import { LockScreen } from '../screens/LockScreen';
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -47,7 +48,6 @@ function RecipeStackNavigator() {
       <RecipeStack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
       <RecipeStack.Screen name="AddRecipe"    component={AddRecipeScreen} />
       <RecipeStack.Screen name="CookingMode"  component={CookingModeScreen} />
-      <RecipeStack.Screen name="FoodScanner"  component={FoodScannerScreen} />
     </RecipeStack.Navigator>
   );
 }
@@ -134,13 +134,18 @@ function MainTabs() {
   );
 }
 
+const BIOMETRIC_KEY = 'eatsy_biometric_lock';
+const LOCK_GRACE_MS = 30_000;
+
 export const AppNavigator: React.FC = () => {
   const { user, loading } = useAuth();
   const { t, applyRemotePrefs, darkMode } = usePreferences();
   const [showWelcome, setShowWelcome] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
   const welcomeFade = useRef(new Animated.Value(1)).current;
   const initialLoadDone = useRef(false);
+  const backgroundedAt = useRef<number | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => setOnboardingDone(false), 1500);
@@ -152,6 +157,24 @@ export const AppNavigator: React.FC = () => {
       setOnboardingDone(false);
     });
   }, []);
+
+  // ── Biometric lock ──────────────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+    const sub = AppState.addEventListener('change', async (state) => {
+      if (state === 'background' || state === 'inactive') {
+        backgroundedAt.current = Date.now();
+      } else if (state === 'active') {
+        const elapsed = backgroundedAt.current
+          ? Date.now() - backgroundedAt.current
+          : Infinity;
+        backgroundedAt.current = null;
+        const enabled = await AsyncStorage.getItem(BIOMETRIC_KEY).catch(() => null) === 'true';
+        if (enabled && elapsed >= LOCK_GRACE_MS) setIsLocked(true);
+      }
+    });
+    return () => sub.remove();
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -184,7 +207,7 @@ export const AppNavigator: React.FC = () => {
   if (loading || onboardingDone === null) {
     return (
       <View style={styles.splash}>
-        <Ionicons name="restaurant" size={48} color={Colors.primary} />
+        <Image source={require('../../assets/icon2.0.png')} style={{ width: 80, height: 80, borderRadius: 20 }} />
         <Text style={styles.splashTitle}>Eatsy</Text>
         <ActivityIndicator color={Colors.primary} style={{ marginTop: 24 }} />
       </View>
@@ -198,9 +221,10 @@ export const AppNavigator: React.FC = () => {
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
           {user ? (
             <>
-              <RootStack.Screen name="MainTabs" component={MainTabs} />
-              <RootStack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
-              <RootStack.Screen name="Profile" component={ProfileScreen} options={{ presentation: 'modal' }} />
+              <RootStack.Screen name="MainTabs"    component={MainTabs} />
+              <RootStack.Screen name="FoodScanner" component={FoodScannerScreen} />
+              <RootStack.Screen name="Settings"    component={SettingsScreen} options={{ presentation: 'modal' }} />
+              <RootStack.Screen name="Profile"     component={ProfileScreen}  options={{ presentation: 'modal' }} />
             </>
           ) : (
             <>
@@ -219,6 +243,12 @@ export const AppNavigator: React.FC = () => {
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: welcomeFade }]}>
           <WelcomeScreen userName={user?.displayName ?? user?.email ?? undefined} />
         </Animated.View>
+      )}
+
+      {isLocked && user && (
+        <View style={StyleSheet.absoluteFill}>
+          <LockScreen onUnlock={() => setIsLocked(false)} />
+        </View>
       )}
     </>
   );

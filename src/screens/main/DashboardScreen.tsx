@@ -6,7 +6,6 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
 import { useColors, usePreferences } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
@@ -29,11 +28,11 @@ const MEAL_COLORS: Record<string, string> = {
   dinner:    '#7C3AED',
 };
 
-const WELLNESS_CFG: Record<WellnessType, { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  balanced:  { color: Colors.primary,  bg: `${Colors.primary}18`,  icon: 'leaf-outline' },
-  quick:     { color: Colors.tertiary, bg: `${Colors.tertiary}18`, icon: 'flash-outline' },
-  indulgent: { color: Colors.error,    bg: `${Colors.error}14`,    icon: 'heart-outline' },
-};
+const buildWellnessCfg = (C: ReturnType<typeof useColors>): Record<WellnessType, { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> => ({
+  balanced:  { color: C.primary,  bg: `${C.primary}18`,  icon: 'leaf-outline' },
+  quick:     { color: C.tertiary, bg: `${C.tertiary}18`, icon: 'flash-outline' },
+  indulgent: { color: C.error,    bg: `${C.error}14`,    icon: 'heart-outline' },
+});
 
 const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -50,6 +49,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { t, formatCurrency, language } = usePreferences();
   const C = useColors();
+  const WELLNESS_CFG = buildWellnessCfg(C);
   const insets = useSafeAreaInsets();
 
   const [recipes,      setRecipes]      = useState<Recipe[]>([]);
@@ -67,6 +67,11 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     }))
   ).current;
   const hasEntered = useRef(false);
+  const scrollRef  = useRef<React.ElementRef<typeof ScrollView>>(null);
+
+  useFocusEffect(useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []));
 
   useFocusEffect(useCallback(() => {
     if (hasEntered.current) return;
@@ -231,6 +236,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       </Animated.View>
 
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
@@ -463,7 +469,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 // ── Styles ────────────────────────────────────────────────
-const createStyles = (C: typeof Colors) => StyleSheet.create({
+const createStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.surface },
 
   // Header

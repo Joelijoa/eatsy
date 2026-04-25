@@ -15,17 +15,11 @@ import { addRecipe, updateRecipe, getRecipe, getCategories } from '../../service
 import { Recipe, Ingredient, Category, WellnessType } from '../../types';
 import { usePreferences , useColors } from '../../context/PreferencesContext';
 
-const WELLNESS_OPTIONS: Array<{
-  value: WellnessType;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
-  bg: string;
-}> = [
-  { value: 'balanced',  label: 'Équilibré', icon: 'leaf-outline',  color: Colors.primary,  bg: `${Colors.primary}15` },
-  { value: 'quick',     label: 'Rapide',    icon: 'flash-outline', color: Colors.tertiary, bg: `${Colors.tertiary}18` },
-  { value: 'indulgent', label: 'Plaisir',   icon: 'heart-outline', color: Colors.error,    bg: `${Colors.error}15` },
-];
+const WELLNESS_ICONS: Record<WellnessType, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
+  balanced:  { icon: 'leaf-outline',  color: Colors.primary,  bg: `${Colors.primary}15` },
+  quick:     { icon: 'flash-outline', color: Colors.tertiary, bg: `${Colors.tertiary}18` },
+  indulgent: { icon: 'heart-outline', color: Colors.error,    bg: `${Colors.error}15` },
+};
 
 const emptyIngredient = (): Ingredient => ({
   id: Math.random().toString(36).substr(2, 9),
@@ -36,7 +30,7 @@ type Props = { navigation: any; route: any };
 
 export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { user } = useAuth();
-  const { formatCurrency, currencySymbol } = usePreferences();
+  const { formatCurrency, currencySymbol, t } = usePreferences();
   const insets = useSafeAreaInsets();
   const Colors = useColors();
   const recipeId = route.params?.recipeId;
@@ -110,8 +104,8 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!name.trim()) return Alert.alert('Nom requis', 'Veuillez saisir un nom pour la recette.');
-    if (ingredients.some((i) => !i.name.trim())) return Alert.alert('Ingrédient incomplet', 'Tous les ingrédients doivent avoir un nom.');
+    if (!name.trim()) return Alert.alert(t('common_name_required'), t('add_recipe_name_required_msg'));
+    if (ingredients.some((i) => !i.name.trim())) return Alert.alert(t('add_recipe_incomplete_title'), t('add_recipe_incomplete_msg'));
 
     setLoading(true);
     try {
@@ -139,7 +133,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
       }
       navigation.goBack();
     } catch (e: any) {
-      Alert.alert('Erreur', e.message);
+      Alert.alert(t('common_error'), e.message);
     } finally {
       setLoading(false);
     }
@@ -153,11 +147,12 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* Header */}
         <View style={[styles.headerBand, { paddingTop: insets.top + 12 }]}>
           <View style={styles.headerDecor} />
+          <View style={styles.headerDecor2} />
           <View style={styles.headerRow}>
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{isEdit ? 'Modifier la recette' : 'Nouvelle recette'}</Text>
+            <Text style={styles.headerTitle}>{isEdit ? t('add_recipe_title_edit') : t('add_recipe_title_new')}</Text>
             <View style={{ width: 40 }} />
           </View>
         </View>
@@ -177,7 +172,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.imageOverlay}>
                   <View style={styles.imageEditBadge}>
                     <Ionicons name="camera" size={16} color="#fff" />
-                    <Text style={styles.imageEditText}>Changer</Text>
+                    <Text style={styles.imageEditText}>{t('add_recipe_change_photo')}</Text>
                   </View>
                 </View>
               </>
@@ -186,8 +181,8 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.imagePlaceholderIcon}>
                   <Ionicons name="camera-outline" size={28} color={Colors.primary} />
                 </View>
-                <Text style={styles.imagePlaceholderText}>Ajouter une photo</Text>
-                <Text style={styles.imagePlaceholderSub}>Optionnel · JPG, PNG</Text>
+                <Text style={styles.imagePlaceholderText}>{t('add_recipe_add_photo')}</Text>
+                <Text style={styles.imagePlaceholderSub}>{t('add_recipe_photo_hint')}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -198,11 +193,11 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.cardHeaderIcon}>
                 <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
               </View>
-              <Text style={styles.cardTitle}>Informations générales</Text>
+              <Text style={styles.cardTitle}>{t('add_recipe_general')}</Text>
             </View>
 
-            <EatsyInput label="Nom de la recette *" value={name} onChangeText={setName} placeholder="Ex: Poulet rôti aux herbes" />
-            <EatsyInput label="Description" value={description} onChangeText={setDescription} placeholder="Courte description..." multiline numberOfLines={2} />
+            <EatsyInput label={t('add_recipe_name_label')} value={name} onChangeText={setName} placeholder={t('add_recipe_name_placeholder')} />
+            <EatsyInput label={t('add_recipe_desc_label')} value={description} onChangeText={setDescription} placeholder={t('add_recipe_desc_placeholder')} multiline numberOfLines={2} />
 
             <View style={styles.row}>
               <View style={styles.half}>
@@ -399,7 +394,11 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   },
   headerDecor: {
     position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.06)', top: -70, right: -40,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -70, right: -40,
+  },
+  headerDecor2: {
+    position: 'absolute', width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -30, left: -20,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backBtn: {

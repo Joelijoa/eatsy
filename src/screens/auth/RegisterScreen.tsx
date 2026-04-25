@@ -1,44 +1,41 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Colors } from '../../constants/colors';
-import { useColors } from '../../context/PreferencesContext';
+import { useColors, usePreferences } from '../../context/PreferencesContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
 import { registerUser } from '../../services/authService';
 import { RootStackParamList } from '../../types';
 
-type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>;
-};
+type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Register'> };
 
 export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const Colors = useColors();
+  const { t } = usePreferences();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!name.trim()) e.name = 'Nom requis';
-    if (!email.trim()) e.email = 'Email requis';
-    else if (!/\S+@\S+\.\S+/.test(email)) e.email = 'Email invalide';
-    if (!password) e.password = 'Mot de passe requis';
-    else if (password.length < 6) e.password = 'Au moins 6 caractères';
-    if (password !== confirm) e.confirm = 'Les mots de passe ne correspondent pas';
+    if (!name.trim()) e.name = t('common_name_required');
+    if (!email.trim()) e.email = t('auth_email_required');
+    else if (!/\S+@\S+\.\S+/.test(email)) e.email = t('auth_email_invalid');
+    if (!password) e.password = t('auth_password_required');
+    else if (password.length < 6) e.password = t('auth_password_min');
+    if (password !== confirm) e.confirm = t('auth_passwords_mismatch');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -48,9 +45,8 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     try {
       await registerUser(email, password, name);
-      // AppNavigator redirige automatiquement quand user change
     } catch (err: any) {
-      Alert.alert('Erreur', err.message ?? 'Inscription échouée');
+      Alert.alert(t('common_error'), err.message ?? t('register_failed'));
     } finally {
       setLoading(false);
     }
@@ -59,59 +55,151 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const styles = createStyles(Colors);
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.blobTopRight} />
+    <KeyboardAvoidingView style={[styles.root, { backgroundColor: Colors.primary }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Retour</Text>
+      {/* ── Hero ── */}
+      <View style={[styles.hero, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.decor1} />
+        <View style={styles.decor2} />
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={20} color="rgba(255,255,255,0.9)" />
         </TouchableOpacity>
+        <View style={styles.heroText}>
+          <Text style={styles.heroTitle}>{t('register_title')}</Text>
+          <Text style={styles.heroSub}>{t('register_sub')}</Text>
+        </View>
+      </View>
 
-        <View style={styles.header}>
-          <Text style={styles.title}>Créer un compte</Text>
-          <Text style={styles.subtitle}>Rejoignez la table curatée.</Text>
+      {/* ── Form sheet ── */}
+      <ScrollView
+        style={styles.sheet}
+        contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 32 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.sheetHandle} />
+
+        <EatsyInput
+          label={t('register_name_label')}
+          value={name}
+          onChangeText={setName}
+          placeholder={t('register_name_placeholder')}
+          error={errors.name}
+          autoCapitalize="words"
+        />
+        <EatsyInput
+          label={t('register_email_label')}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          placeholder={t('forgot_email_placeholder')}
+          error={errors.email}
+        />
+        <EatsyInput
+          label={t('register_pwd_label')}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPwd}
+          placeholder={t('register_pwd_placeholder')}
+          error={errors.password}
+          rightIcon={<Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.outline} />}
+          onRightIconPress={() => setShowPwd((v) => !v)}
+        />
+        <EatsyInput
+          label={t('register_confirm_label')}
+          value={confirm}
+          onChangeText={setConfirm}
+          secureTextEntry={!showConfirm}
+          placeholder="••••••••"
+          error={errors.confirm}
+          rightIcon={<Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.outline} />}
+          onRightIconPress={() => setShowConfirm((v) => !v)}
+        />
+
+        <EatsyButton label={t('register_btn')} onPress={handleRegister} loading={loading} style={styles.registerBtn} />
+
+        <View style={styles.dividerRow}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>{t('login_or')}</Text>
+          <View style={styles.divider} />
         </View>
 
-        <View style={styles.card}>
-          <EatsyInput label="Nom complet" value={name} onChangeText={setName} placeholder="Marie Dupont" error={errors.name} autoCapitalize="words" />
-          <EatsyInput label="Adresse e-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="marie@example.com" error={errors.email} />
-          <EatsyInput label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry placeholder="Min. 6 caractères" error={errors.password} />
-          <EatsyInput label="Confirmer le mot de passe" value={confirm} onChangeText={setConfirm} secureTextEntry placeholder="••••••••" error={errors.confirm} />
-
-          <EatsyButton label="Créer mon compte" onPress={handleRegister} loading={loading} style={styles.btn} />
-
-          <View style={styles.loginRow}>
-            <Text style={styles.loginText}>Déjà inscrit ? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginLink}>Se connecter</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TouchableOpacity style={styles.loginBtn} onPress={() => navigation.navigate('Login')} activeOpacity={0.8}>
+          <Text style={styles.loginBtnText}>{t('register_login_link')}</Text>
+        </TouchableOpacity>
       </ScrollView>
+
     </KeyboardAvoidingView>
   );
 };
 
-const createStyles = (C: typeof Colors) => StyleSheet.create({
-  flex: { flex: 1, backgroundColor: C.surface },
-  content: { flexGrow: 1, padding: Spacing.lg, paddingTop: Spacing.xl },
-  blobTopRight: {
-    position: 'absolute', top: -30, right: -50,
-    width: 180, height: 180, borderRadius: 90,
-    backgroundColor: `${C.secondaryContainer}40`,
+const createStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
+  root: { flex: 1 },
+
+  // ── Hero ──
+  hero: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 40,
+    overflow: 'hidden',
   },
-  backBtn: { marginBottom: Spacing.lg },
-  backText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary },
-  header: { marginBottom: Spacing.xl },
-  title: { fontFamily: FontFamily.headlineBold, fontSize: FontSize.displayMd, color: C.onSurface, letterSpacing: -0.5 },
-  subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant, marginTop: 4 },
-  card: {
-    backgroundColor: C.surfaceContainerLowest, borderRadius: BorderRadius.xxl,
-    padding: Spacing.xl, shadowColor: C.onSurface, shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06, shadowRadius: 24, elevation: 3,
+  decor1: {
+    position: 'absolute', width: 220, height: 220, borderRadius: 110,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -70, right: -60,
   },
-  btn: { marginTop: Spacing.md },
-  loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg },
-  loginText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
-  loginLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.primary, textDecorationLine: 'underline' },
+  decor2: {
+    position: 'absolute', width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: -30,
+  },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: Spacing.lg,
+  },
+  heroText: {},
+  heroTitle: {
+    fontFamily: FontFamily.headlineBold, fontSize: FontSize.displaySm,
+    color: '#fff', letterSpacing: -0.5,
+  },
+  heroSub: {
+    fontFamily: FontFamily.body, fontSize: FontSize.bodyMd,
+    color: 'rgba(255,255,255,0.72)', marginTop: 4,
+  },
+
+  // ── Sheet ──
+  sheet: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    marginTop: -28,
+  },
+  sheetContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  sheetHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: C.outlineVariant,
+    alignSelf: 'center', marginBottom: Spacing.lg,
+  },
+
+  registerBtn: { marginBottom: Spacing.lg, marginTop: Spacing.xs },
+
+  dividerRow: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: Spacing.sm, marginBottom: Spacing.lg,
+  },
+  divider: { flex: 1, height: 1, backgroundColor: C.surfaceContainerHigh },
+  dividerText: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+
+  loginBtn: {
+    paddingVertical: 15, borderRadius: BorderRadius.full,
+    backgroundColor: `${C.primary}12`,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  loginBtnText: {
+    fontFamily: FontFamily.bodyBold, fontSize: FontSize.titleLg, color: C.primary,
+  },
 });
