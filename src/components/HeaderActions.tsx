@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Colors } from '../constants/colors';
 import { useColors } from '../context/PreferencesContext';
 import { FontFamily, FontSize } from '../constants/typography';
+import { useUpdateCheck } from '../hooks/useUpdateCheck';
 
 type Props = {
   navigation: any;
@@ -14,6 +15,7 @@ type Props = {
 export const HeaderActions: React.FC<Props> = ({ navigation, tint = 'rgba(255,255,255,0.9)' }) => {
   const { user } = useAuth();
   const Colors = useColors();
+  const { updateAvailable } = useUpdateCheck();
 
   const initials = user?.displayName
     ? user.displayName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -25,6 +27,7 @@ export const HeaderActions: React.FC<Props> = ({ navigation, tint = 'rgba(255,25
     <View style={styles.row}>
       <TouchableOpacity style={styles.btn} onPress={() => navigation.navigate('Settings')}>
         <Ionicons name="settings-outline" size={20} color={tint} />
+        {updateAvailable && <View style={styles.updateDot} />}
       </TouchableOpacity>
       <TouchableOpacity style={[styles.avatar]} onPress={() => navigation.navigate('Profile')}>
         <Text style={styles.avatarText}>{initials}</Text>
@@ -39,6 +42,12 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center', justifyContent: 'center',
+  },
+  updateDot: {
+    position: 'absolute', top: 2, right: 2,
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: '#ef4444',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)',
   },
   avatar: {
     width: 36, height: 36, borderRadius: 18,

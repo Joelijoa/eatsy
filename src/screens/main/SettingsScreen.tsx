@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Animated, ActivityIndicator } from 'react-native';
-import * as Updates from 'expo-updates';
+import * as Updates from 'expo-updates'; // utilisé dans handleUpdate
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
+import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -34,14 +35,11 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const [biometricEnabled, setBiometricEnabled]   = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLabel, setBiometricLabel]         = useState(t('settings_biometric_default'));
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updatingApp, setUpdatingApp]         = useState(false);
+  const { updateAvailable } = useUpdateCheck();
+  const [updatingApp, setUpdatingApp] = useState(false);
   const { opacity, translateY } = useScreenEntrance();
 
   useEffect(() => {
-    Updates.checkForUpdateAsync()
-      .then((result) => { if (result.isAvailable) setUpdateAvailable(true); })
-      .catch(() => {});
     loadNotificationSettings().then(setNotifSettings);
     // Check biometric hardware
     Promise.all([
