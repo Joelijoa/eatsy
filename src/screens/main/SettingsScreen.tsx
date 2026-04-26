@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Animated, ActivityIndicator } from 'react-native';
+import * as Updates from 'expo-updates';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
@@ -33,9 +34,14 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const [biometricEnabled, setBiometricEnabled]   = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLabel, setBiometricLabel]         = useState(t('settings_biometric_default'));
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updatingApp, setUpdatingApp]         = useState(false);
   const { opacity, translateY } = useScreenEntrance();
 
   useEffect(() => {
+    Updates.checkForUpdateAsync()
+      .then((result) => { if (result.isAvailable) setUpdateAvailable(true); })
+      .catch(() => {});
     loadNotificationSettings().then(setNotifSettings);
     // Check biometric hardware
     Promise.all([
@@ -122,6 +128,18 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
       { text: t('common_cancel'), style: 'cancel' },
       { text: t('settings_logout'), style: 'destructive', onPress: () => signOut(auth) },
     ]});
+  };
+
+  const handleUpdate = async () => {
+    if (updatingApp) return;
+    setUpdatingApp(true);
+    try {
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync();
+    } catch {
+      setUpdatingApp(false);
+      showAlert({ title: t('settings_update_none') });
+    }
   };
 
   const LANG_OPTIONS: Array<{ value: Language; label: string; flag: string }> = [
@@ -448,9 +466,29 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={[styles.row, styles.rowBorder]}>
             <Text style={styles.rowLabel}>{t('settings_version')}</Text>
             <View style={styles.versionBadge}>
-              <Text style={styles.versionText}>1.0.0</Text>
+              <Text style={styles.versionText}>1.0.1</Text>
             </View>
           </View>
+          <TouchableOpacity
+            style={[styles.row, styles.rowBorder, styles.updateRow]}
+            onPress={handleUpdate}
+            activeOpacity={updateAvailable ? 0.78 : 1}
+            disabled={updatingApp}
+          >
+            <View style={[styles.updateIconWrap, updateAvailable && styles.updateIconWrapActive]}>
+              <Ionicons name="refresh-outline" size={18} color={updateAvailable ? Colors.onPrimary : Colors.onSurfaceVariant} />
+            </View>
+            <Text style={[styles.rowLabel, updateAvailable && { color: Colors.primary }]}>
+              {updatingApp ? t('settings_update_installing') : t('settings_update_check')}
+            </Text>
+            {updatingApp ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : updateAvailable ? (
+              <View style={styles.updateBadge}>
+                <Text style={styles.updateBadgeText}>1</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
           <View style={styles.aboutBlock}>
             <Text style={styles.copyrightText}>{t('settings_copyright_text')}</Text>
             <Text style={styles.copyrightSub}>Fait avec ❤️ pour les cuisiniers malins.</Text>
@@ -644,4 +682,17 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   aboutBlock: { paddingVertical: Spacing.md, gap: 4 },
   copyrightText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface },
   copyrightSub: { fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant },
+
+  // ── Update row ──
+  updateRow: { gap: Spacing.md },
+  updateIconWrap: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: C.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center',
+  },
+  updateIconWrapActive: { backgroundColor: C.primary },
+  updateBadge: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: C.error, alignItems: 'center', justifyContent: 'center',
+  },
+  updateBadgeText: { fontFamily: FontFamily.bodyBold, fontSize: 11, color: '#fff' },
 });

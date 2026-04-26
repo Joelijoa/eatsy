@@ -23,6 +23,8 @@
       "package": "com.eatsy.app",
       "permissions": [
         "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -38,6 +40,12 @@
       "eas": {
         "projectId": "42843bb1-0ec5-4d2a-a66d-c434fe9ce22b"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/42843bb1-0ec5-4d2a-a66d-c434fe9ce22b"
     }
   }
 }

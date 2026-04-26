@@ -2,11 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, KeyboardAvoidingView, Platform, Animated,
+  LayoutAnimation, UIManager,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useAlert } from '../../context/AlertContext';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
@@ -47,7 +48,9 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [servings, setServings] = useState('4');
   const { showAlert } = useAlert();
   const [imageUri, setImageUri] = useState<string | undefined>();
-  const [ingredients, setIngredients] = useState<Ingredient[]>([emptyIngredient()]);
+  const firstIngRef = useRef(emptyIngredient());
+  const [ingredients, setIngredients] = useState<Ingredient[]>([firstIngRef.current]);
+  const [activeIngredientId, setActiveIngredientId] = useState<string>(firstIngRef.current.id);
   const [instructions, setInstructions] = useState<string[]>(['']);
   const [wellnessType, setWellnessType] = useState<WellnessType>('balanced');
   const [categoryId, setCategoryId] = useState('');
@@ -55,6 +58,9 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (Platform.OS === 'android') {
+      UIManager.setLayoutAnimationEnabledExperimental?.(true);
+    }
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 200 }),
@@ -70,6 +76,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
         setServings(String(r.servings));
         setImageUri(r.imageUrl);
         setIngredients(r.ingredients.length ? r.ingredients : [emptyIngredient()]);
+        setActiveIngredientId('');
         setInstructions(r.instructions.length ? r.instructions : ['']);
         setWellnessType(r.wellnessType);
         setCategoryId(r.categoryId);
@@ -296,44 +303,100 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               </View>
             </View>
 
-            {ingredients.map((ing, idx) => (
-              <View key={ing.id} style={styles.ingredientBlock}>
-                <View style={styles.ingredientBlockHeader}>
-                  <View style={styles.ingIndex}>
-                    <Text style={styles.ingIndexText}>{idx + 1}</Text>
-                  </View>
-                  <Text style={styles.ingLabel}>{t('add_recipe_ingredient_n')} {idx + 1}</Text>
+            {ingredients.map((ing, idx) => {
+              const isActive = activeIngredientId === ing.id;
+              const expand = () => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setActiveIngredientId(ing.id);
+              };
+              const collapse = () => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setActiveIngredientId('');
+              };
+
+              if (!isActive) {
+                return (
                   <TouchableOpacity
-                    style={styles.removeIconBtn}
-                    onPress={() => removeIngredient(ing.id)}
-                    disabled={ingredients.length === 1}
+                    key={ing.id}
+                    style={styles.ingCollapsed}
+                    onPress={expand}
+                    activeOpacity={0.75}
                   >
-                    <Ionicons name="trash-outline" size={16} color={ingredients.length === 1 ? Colors.outlineVariant : Colors.error} />
+                    <View style={styles.ingIndex}>
+                      <Text style={styles.ingIndexText}>{idx + 1}</Text>
+                    </View>
+                    <Text
+                      style={[styles.ingCollapsedName, !ing.name.trim() && { color: Colors.onSurfaceVariant }]}
+                      numberOfLines={1}
+                    >
+                      {ing.name.trim() || `${t('add_recipe_ingredient_n')} ${idx + 1}`}
+                    </Text>
+                    {ing.name.trim() ? (
+                      <Text style={styles.ingCollapsedMeta} numberOfLines={1}>
+                        {ing.quantity} {ing.unit}{ing.price > 0 ? ` · ${formatCurrency(ing.price * ing.quantity)}` : ''}
+                      </Text>
+                    ) : null}
+                    <TouchableOpacity
+                      style={styles.removeIconBtn}
+                      onPress={() => removeIngredient(ing.id)}
+                      disabled={ingredients.length === 1}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={ingredients.length === 1 ? Colors.outlineVariant : Colors.error} />
+                    </TouchableOpacity>
                   </TouchableOpacity>
+                );
+              }
+
+              return (
+                <View key={ing.id} style={styles.ingredientBlock}>
+                  <TouchableOpacity
+                    style={styles.ingredientBlockHeader}
+                    onPress={collapse}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.ingIndex}>
+                      <Text style={styles.ingIndexText}>{idx + 1}</Text>
+                    </View>
+                    <Text style={styles.ingLabel}>{t('add_recipe_ingredient_n')} {idx + 1}</Text>
+                    <Ionicons name="chevron-up" size={15} color={Colors.onSurfaceVariant} style={{ marginRight: 2 }} />
+                    <TouchableOpacity
+                      style={styles.removeIconBtn}
+                      onPress={() => removeIngredient(ing.id)}
+                      disabled={ingredients.length === 1}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={ingredients.length === 1 ? Colors.outlineVariant : Colors.error} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                  <EatsyInput
+                    label={t('add_recipe_ing_name')}
+                    value={ing.name}
+                    onChangeText={(v) => updateIngredient(ing.id, 'name', v)}
+                    placeholder="Ex: Farine"
+                  />
+                  <View style={styles.row}>
+                    <View style={styles.third}>
+                      <EatsyInput label={t('add_recipe_quantity')} value={String(ing.quantity)} onChangeText={(v) => updateIngredient(ing.id, 'quantity', parseFloat(v) || 0)} keyboardType="numeric" placeholder="100" />
+                    </View>
+                    <View style={styles.third}>
+                      <EatsyInput label={t('add_recipe_unit')} value={ing.unit} onChangeText={(v) => updateIngredient(ing.id, 'unit', v)} placeholder="g" />
+                    </View>
+                    <View style={styles.third}>
+                      <EatsyInput label={`Prix (${currencySymbol})`} value={String(ing.price)} onChangeText={(v) => updateIngredient(ing.id, 'price', parseFloat(v) || 0)} keyboardType="numeric" placeholder="0.50" />
+                    </View>
+                  </View>
                 </View>
-                <EatsyInput
-                  label={t('add_recipe_ing_name')}
-                  value={ing.name}
-                  onChangeText={(v) => updateIngredient(ing.id, 'name', v)}
-                  placeholder="Ex: Farine"
-                />
-                <View style={styles.row}>
-                  <View style={styles.third}>
-                    <EatsyInput label={t('add_recipe_quantity')} value={String(ing.quantity)} onChangeText={(v) => updateIngredient(ing.id, 'quantity', parseFloat(v) || 0)} keyboardType="numeric" placeholder="100" />
-                  </View>
-                  <View style={styles.third}>
-                    <EatsyInput label={t('add_recipe_unit')} value={ing.unit} onChangeText={(v) => updateIngredient(ing.id, 'unit', v)} placeholder="g" />
-                  </View>
-                  <View style={styles.third}>
-                    <EatsyInput label={`Prix (${currencySymbol})`} value={String(ing.price)} onChangeText={(v) => updateIngredient(ing.id, 'price', parseFloat(v) || 0)} keyboardType="numeric" placeholder="0.50" />
-                  </View>
-                </View>
-              </View>
-            ))}
+              );
+            })}
 
             <TouchableOpacity
               style={styles.addRowBtn}
-              onPress={() => setIngredients((prev) => [...prev, emptyIngredient()])}
+              onPress={() => {
+                const newIng = emptyIngredient();
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setIngredients((prev) => [...prev, newIng]);
+                setActiveIngredientId(newIng.id);
+              }}
             >
               <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
               <Text style={styles.addRowBtnText}>{t('add_recipe_add_ingredient')}</Text>
@@ -493,6 +556,19 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
     padding: Spacing.md, marginBottom: Spacing.sm,
   },
   ingredientBlockHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: 6 },
+
+  ingCollapsed: {
+    backgroundColor: C.surfaceContainerLow, borderRadius: BorderRadius.xl,
+    paddingVertical: 10, paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
+  },
+  ingCollapsedName: {
+    flex: 1, fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurface,
+  },
+  ingCollapsedMeta: {
+    fontFamily: FontFamily.body, fontSize: FontSize.labelMd, color: C.onSurfaceVariant,
+    flexShrink: 1,
+  },
   ingIndex: {
     width: 22, height: 22, borderRadius: 11, backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center',
