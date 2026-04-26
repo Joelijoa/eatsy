@@ -5,12 +5,12 @@ import { initializeFirestore, persistentLocalCache, persistentSingleTabManager }
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC3TacpcVZhQGDAWyk9MlDgH4TYCcwd_3M",
-  authDomain: "eatsy-app-4424e.firebaseapp.com",
-  projectId: "eatsy-app-4424e",
-  storageBucket: "eatsy-app-4424e.firebasestorage.app",
-  messagingSenderId: "1046792377093",
-  appId: "1:1046792377093:web:deb2e136c1f4ad9de99d6c",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
