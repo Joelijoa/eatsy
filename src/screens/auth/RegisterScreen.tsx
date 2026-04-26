@@ -12,6 +12,8 @@ import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typ
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
 import { registerUser } from '../../services/authService';
+import { resolveAuthError } from '../../utils/authErrors';
+import { getPasswordStrength, isPasswordAcceptable } from '../../utils/passwordStrength';
 import { RootStackParamList } from '../../types';
 
 type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Register'> };
@@ -30,13 +32,16 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const strength = getPasswordStrength(password);
+
   const validate = () => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = t('common_name_required');
     if (!email.trim()) e.email = t('auth_email_required');
     else if (!/\S+@\S+\.\S+/.test(email)) e.email = t('auth_email_invalid');
     if (!password) e.password = t('auth_password_required');
-    else if (password.length < 6) e.password = t('auth_password_min');
+    else if (password.length < 8) e.password = t('auth_password_min');
+    else if (!isPasswordAcceptable(password)) e.password = t('auth_password_too_weak');
     if (password !== confirm) e.confirm = t('auth_passwords_mismatch');
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -48,7 +53,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     try {
       await registerUser(email, password, name);
     } catch (err: any) {
-      showAlert({ title: t('common_error'), message: err.message ?? t('register_failed') });
+      showAlert({ title: t('common_error'), message: resolveAuthError(err, 'register_failed', t) });
     } finally {
       setLoading(false);
     }
@@ -108,6 +113,30 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           rightIcon={<Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.outline} />}
           onRightIconPress={() => setShowPwd((v) => !v)}
         />
+        {password.length > 0 && (
+          <View style={styles.strengthRow}>
+            {[1, 2, 3].map((i) => (
+              <View
+                key={i}
+                style={[
+                  styles.strengthBar,
+                  i <= strength.score && {
+                    backgroundColor:
+                      strength.level === 'strong' ? '#16a34a' :
+                      strength.level === 'fair'   ? '#f59e0b' : '#ef4444',
+                  },
+                ]}
+              />
+            ))}
+            <Text style={[
+              styles.strengthLabel,
+              { color: strength.level === 'strong' ? '#16a34a' : strength.level === 'fair' ? '#f59e0b' : '#ef4444' },
+            ]}>
+              {t(`auth_pwd_${strength.level}`)}
+            </Text>
+          </View>
+        )}
+
         <EatsyInput
           label={t('register_confirm_label')}
           value={confirm}
@@ -185,6 +214,26 @@ const createStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
     width: 36, height: 4, borderRadius: 2,
     backgroundColor: C.outlineVariant,
     alignSelf: 'center', marginBottom: Spacing.lg,
+  },
+
+  strengthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  strengthBar: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.surfaceContainerHigh,
+  },
+  strengthLabel: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.labelSm,
+    minWidth: 42,
+    textAlign: 'right',
   },
 
   registerBtn: { marginBottom: Spacing.lg, marginTop: Spacing.xs },

@@ -12,6 +12,7 @@ import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typ
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
 import { resetPassword } from '../../services/authService';
+import { resolveAuthError } from '../../utils/authErrors';
 import { RootStackParamList } from '../../types';
 
 type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'ForgotPassword'> };
@@ -32,7 +33,7 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
       await resetPassword(email);
       setSent(true);
     } catch (err: any) {
-      showAlert({ title: t('common_error'), message: err.message ?? t('forgot_failed') });
+      showAlert({ title: t('common_error'), message: resolveAuthError(err, 'forgot_failed', t) });
     } finally {
       setLoading(false);
     }

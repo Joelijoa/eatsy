@@ -2,6 +2,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signOut,
   updateProfile,
   User,
@@ -9,6 +10,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { UserProfile } from '../types';
+import { EMAIL_VERIFICATION_SETTINGS } from '../utils/firebaseActionSettings';
 
 export const registerUser = async (
   email: string,
@@ -27,6 +29,7 @@ export const registerUser = async (
   };
 
   await setDoc(doc(db, 'users', credential.user.uid), profile);
+  await sendEmailVerification(credential.user, EMAIL_VERIFICATION_SETTINGS);
   return credential.user;
 };
 

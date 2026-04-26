@@ -22,6 +22,7 @@ import { FontFamily, FontSize } from '../constants/typography';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
+import { EmailVerificationScreen } from '../screens/auth/EmailVerificationScreen';
 
 import { DashboardScreen } from '../screens/main/DashboardScreen';
 import { WeeklyPlannerScreen } from '../screens/main/WeeklyPlannerScreen';
@@ -221,12 +222,16 @@ export const AppNavigator: React.FC = () => {
       <NavigationContainer>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
           {user ? (
-            <>
-              <RootStack.Screen name="MainTabs"    component={MainTabs} />
-              <RootStack.Screen name="FoodScanner" component={FoodScannerScreen} />
-              <RootStack.Screen name="Settings"    component={SettingsScreen} options={{ presentation: 'modal' }} />
-              <RootStack.Screen name="Profile"     component={ProfileScreen}  options={{ presentation: 'modal' }} />
-            </>
+            user.emailVerified ? (
+              <>
+                <RootStack.Screen name="MainTabs"    component={MainTabs} />
+                <RootStack.Screen name="FoodScanner" component={FoodScannerScreen} />
+                <RootStack.Screen name="Settings"    component={SettingsScreen} options={{ presentation: 'modal' }} />
+                <RootStack.Screen name="Profile"     component={ProfileScreen}  options={{ presentation: 'modal' }} />
+              </>
+            ) : (
+              <RootStack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            )
           ) : (
             <>
               {!onboardingDone && (

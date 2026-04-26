@@ -12,6 +12,7 @@ import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typ
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
 import { loginUser } from '../../services/authService';
+import { useLoginRateLimit } from '../../hooks/useLoginRateLimit';
 import { RootStackParamList } from '../../types';
 
 type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Login'> };
@@ -26,6 +27,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const { isLocked, lockoutMessage, recordFailure, recordSuccess } = useLoginRateLimit();
 
   const validate = () => {
     const e: typeof errors = {};
@@ -37,11 +39,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleLogin = async () => {
+    if (isLocked) return;
     if (!validate()) return;
     setLoading(true);
     try {
       await loginUser(email, password);
+      await recordSuccess();
     } catch {
+      await recordFailure();
       showAlert({ title: t('login_error_title'), message: t('login_error_msg') });
     } finally {
       setLoading(false);
@@ -104,7 +109,20 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.forgotText}>{t('login_forgot')}</Text>
         </TouchableOpacity>
 
-        <EatsyButton label={t('login_title')} onPress={handleLogin} loading={loading} style={styles.loginBtn} />
+        {lockoutMessage && (
+          <View style={styles.lockoutBanner}>
+            <Ionicons name="lock-closed-outline" size={14} color="#b91c1c" />
+            <Text style={styles.lockoutText}>{lockoutMessage}</Text>
+          </View>
+        )}
+
+        <EatsyButton
+          label={t('login_title')}
+          onPress={handleLogin}
+          loading={loading}
+          disabled={isLocked}
+          style={styles.loginBtn}
+        />
 
         <View style={styles.dividerRow}>
           <View style={styles.divider} />
@@ -176,6 +194,25 @@ const createStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
   sheetTitle: {
     fontFamily: FontFamily.headlineBold, fontSize: FontSize.headlineLg,
     color: C.onSurface, marginBottom: Spacing.lg,
+  },
+
+  lockoutBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: Spacing.sm,
+  },
+  lockoutText: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.labelMd,
+    color: '#b91c1c',
+    flex: 1,
   },
 
   forgotRow: { alignItems: 'flex-end', marginTop: -Spacing.xs, marginBottom: Spacing.lg },

@@ -14,6 +14,9 @@ import { usePreferences, useColors } from '../../context/PreferencesContext';
 import { useAlert } from '../../context/AlertContext';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
+import { resolveAuthError } from '../../utils/authErrors';
+import { isPasswordAcceptable } from '../../utils/passwordStrength';
+import { EMAIL_VERIFICATION_SETTINGS } from '../../utils/firebaseActionSettings';
 
 type Props = { navigation: any };
 
@@ -69,7 +72,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       await updateProfile(user, { displayName: editName.trim() });
       setEditModal(false);
     } catch (err: any) {
-      showAlert({ title: t('common_error'), message: err.message ?? t('profile_error_profile') });
+      showAlert({ title: t('common_error'), message: resolveAuthError(err, 'profile_error_profile', t) });
     } finally {
       setEditLoading(false);
     }
@@ -78,14 +81,14 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const handleSendVerification = async () => {
     if (!user || verifSent) return;
     try {
-      await sendEmailVerification(user);
+      await sendEmailVerification(user, EMAIL_VERIFICATION_SETTINGS);
       setVerifSent(true);
       showAlert({ title: t('profile_email_sent_title'), message: t('profile_verif_link_msg').replace('{email}', user.email ?? '') });
     } catch (err: any) {
       if ((err as any).code === 'auth/too-many-requests') {
         showAlert({ title: t('profile_too_many'), message: t('profile_too_many_msg') });
       } else {
-        showAlert({ title: t('common_error'), message: err.message ?? t('profile_error_verify') });
+        showAlert({ title: t('common_error'), message: resolveAuthError(err, 'profile_error_verify', t) });
       }
     }
   };
@@ -118,7 +121,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     const errs: Record<string, string> = {};
     if (!currentPwd) errs.current = t('profile_pwd_current_required');
     if (!newPwd) errs.new = t('profile_pwd_new_required');
-    else if (newPwd.length < 6) errs.new = t('auth_password_min');
+    else if (newPwd.length < 8) errs.new = t('auth_password_min');
+    else if (!isPasswordAcceptable(newPwd)) errs.new = t('auth_password_too_weak');
     if (newPwd !== confirmPwd) errs.confirm = t('auth_passwords_mismatch');
     if (Object.keys(errs).length) { setPwdErrors(errs); return; }
     if (!user?.email) return;
@@ -133,7 +137,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setPwdErrors({ current: t('profile_pwd_wrong') });
       } else {
-        showAlert({ title: t('common_error'), message: err.message ?? t('profile_error_pwd') });
+        showAlert({ title: t('common_error'), message: resolveAuthError(err, 'profile_error_pwd', t) });
       }
     } finally {
       setPwdLoading(false);

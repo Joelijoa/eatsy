@@ -54,10 +54,16 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleBarcode = async ({ data }: { data: string }) => {
     if (scanned || loading) return;
+    if (!/^[0-9a-zA-Z]{6,50}$/.test(data)) {
+      showAlert({ title: t('scanner_product_not_found'), message: t('scanner_network_error_msg'), buttons: [
+        { text: t('scanner_rescan'), onPress: () => setScanned(false) },
+      ]});
+      return;
+    }
     setScanned(true);
     setLoading(true);
     try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${data}.json`);
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(data)}.json`);
       const json = await res.json();
       if (json.status === 1) {
         const p = json.product;
