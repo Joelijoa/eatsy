@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  Image, TouchableOpacity, Alert, Animated, Share,
+  Image, TouchableOpacity, Animated, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import { checkRecipeStock, deductRecipeFromPantry, displayQty, IngredientStockIn
 import { addShoppingItem } from '../../services/shoppingListService';
 import { Recipe, WellnessType } from '../../types';
 import { usePreferences , useColors } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { useAuth } from '../../context/AuthContext';
 
 const WELLNESS_CONFIG: Record<WellnessType, { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
@@ -51,6 +52,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const styles = createStyles(Colors);
   const { formatCurrency, t } = usePreferences();
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'instructions'>('ingredients');
   const [stockInfo, setStockInfo] = useState<IngredientStockInfo[]>([]);
@@ -109,13 +111,13 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     if (!user || !recipe) return;
     const available = stockInfo.filter((s) => s.status !== 'missing').length;
     if (available === 0) {
-      Alert.alert(t('recipe_stock_empty'), t('recipe_stock_empty_msg'));
+      showAlert({ title: t('recipe_stock_empty'), message: t('recipe_stock_empty_msg') });
       return;
     }
-    Alert.alert(
-      t('recipe_deduct_title'),
-      t('recipe_deduct_confirm_msg').replace('{name}', recipe.name),
-      [
+    showAlert({
+      title: t('recipe_deduct_title'),
+      message: t('recipe_deduct_confirm_msg').replace('{name}', recipe.name),
+      buttons: [
         { text: t('common_cancel'), style: 'cancel' },
         {
           text: t('recipe_deduct_btn'), onPress: async () => {
@@ -124,11 +126,11 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             const updated = await checkRecipeStock(user.uid, recipe.ingredients);
             setStockInfo(updated);
             setDeducting(false);
-            Alert.alert(t('recipe_deduct_done'), t('recipe_deduct_done_msg'));
+            showAlert({ title: t('recipe_deduct_done'), message: t('recipe_deduct_done_msg') });
           },
         },
       ],
-    );
+    });
   };
 
   const handleAddToCart = async (ingName: string, quantity: number, unit: string, price: number) => {
@@ -155,14 +157,14 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       missing.forEach((s) => next.add(s.ingredient.name));
       return next;
     });
-    Alert.alert(t('recipe_added_shopping'), t('recipe_added_shopping_msg').replace('{n}', String(missing.length)));
+    showAlert({ title: t('recipe_added_shopping'), message: t('recipe_added_shopping_msg').replace('{n}', String(missing.length)) });
   };
 
   const handleDelete = () => {
-    Alert.alert(t('recipe_delete_title'), t('recipe_delete_confirm_msg').replace('{name}', recipe.name), [
+    showAlert({ title: t('recipe_delete_title'), message: t('recipe_delete_confirm_msg').replace('{name}', recipe.name), buttons: [
       { text: t('common_cancel'), style: 'cancel' },
       { text: t('common_delete'), style: 'destructive', onPress: async () => { await deleteRecipe(recipe.id); navigation.goBack(); } },
-    ]);
+    ]});
   };
 
   return (

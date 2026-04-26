@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Alert, Animated,
+  ScrollView, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useColors } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { getRecipe } from '../../services/recipeService';
 import { deductRecipeFromPantry } from '../../services/pantryService';
@@ -27,6 +28,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
   const { recipeId } = route.params;
   const { user } = useAuth();
   const { t } = usePreferences();
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const Colors = useColors();
   const styles = createStyles(Colors);
@@ -66,7 +68,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
             setTimerRunning(false);
-            Alert.alert(t('cooking_timer'), t('cooking_timer_done'));
+            showAlert({ title: t('cooking_timer'), message: t('cooking_timer_done') });
             return 0;
           }
           return prev - 1;
@@ -154,15 +156,15 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
               activeOpacity={0.8}
               onPress={() => {
                 if (!user || !recipe?.ingredients?.length) {
-                  Alert.alert(t('cooking_deduct_title'), t('cooking_recipe_done'), [
+                  showAlert({ title: t('cooking_deduct_title'), message: t('cooking_recipe_done'), buttons: [
                     { text: t('cooking_deduct_no'), onPress: () => navigation.goBack() },
-                  ]);
+                  ]});
                   return;
                 }
-                Alert.alert(
-                  t('cooking_deduct_title'),
-                  t('cooking_deduct_question'),
-                  [
+                showAlert({
+                  title: t('cooking_deduct_title'),
+                  message: t('cooking_deduct_question'),
+                  buttons: [
                     { text: t('cooking_deduct_no'), style: 'cancel', onPress: () => navigation.goBack() },
                     {
                       text: t('cooking_deduct_yes'),
@@ -174,7 +176,7 @@ export const CookingModeScreen: React.FC<Props> = ({ navigation, route }) => {
                       },
                     },
                   ],
-                );
+                });
               }}
             >
               <Ionicons name="checkmark-circle" size={20} color={Colors.onPrimary} />

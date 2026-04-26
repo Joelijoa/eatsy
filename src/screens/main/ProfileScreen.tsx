@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Modal, TextInput, ActivityIndicator, Animated,
+  Modal, TextInput, ActivityIndicator, Animated,
 } from 'react-native';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { signOut, updatePassword, updateProfile, sendEmailVerification, EmailAut
 import { auth } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences, useColors } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 
@@ -21,6 +22,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const Colors = useColors();
   const { user } = useAuth();
   const { t } = usePreferences();
+  const { showAlert } = useAlert();
   const { opacity, translateY } = useScreenEntrance();
 
   const [pwdModal, setPwdModal]       = useState(false);
@@ -67,7 +69,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       await updateProfile(user, { displayName: editName.trim() });
       setEditModal(false);
     } catch (err: any) {
-      Alert.alert(t('common_error'), err.message ?? t('profile_error_profile'));
+      showAlert({ title: t('common_error'), message: err.message ?? t('profile_error_profile') });
     } finally {
       setEditLoading(false);
     }
@@ -78,12 +80,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     try {
       await sendEmailVerification(user);
       setVerifSent(true);
-      Alert.alert(t('profile_email_sent_title'), t('profile_verif_link_msg').replace('{email}', user.email ?? ''));
+      showAlert({ title: t('profile_email_sent_title'), message: t('profile_verif_link_msg').replace('{email}', user.email ?? '') });
     } catch (err: any) {
       if ((err as any).code === 'auth/too-many-requests') {
-        Alert.alert(t('profile_too_many'), t('profile_too_many_msg'));
+        showAlert({ title: t('profile_too_many'), message: t('profile_too_many_msg') });
       } else {
-        Alert.alert(t('common_error'), err.message ?? t('profile_error_verify'));
+        showAlert({ title: t('common_error'), message: err.message ?? t('profile_error_verify') });
       }
     }
   };
@@ -97,9 +99,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       setIsVerifiedLocal(verified);
       if (verified) {
         setVerifSent(false);
-        Alert.alert(t('profile_verified_success'), t('profile_verified_msg'));
+        showAlert({ title: t('profile_verified_success'), message: t('profile_verified_msg') });
       } else {
-        Alert.alert(t('profile_not_verified_yet'), t('profile_not_verified_msg'));
+        showAlert({ title: t('profile_not_verified_yet'), message: t('profile_not_verified_msg') });
       }
     } finally {
       setRefreshingVerif(false);
@@ -126,12 +128,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       await reauthenticateWithCredential(user, cred);
       await updatePassword(user, newPwd);
       setPwdModal(false);
-      Alert.alert(t('common_success'), t('profile_pwd_changed'));
+      showAlert({ title: t('common_success'), message: t('profile_pwd_changed') });
     } catch (err: any) {
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setPwdErrors({ current: t('profile_pwd_wrong') });
       } else {
-        Alert.alert(t('common_error'), err.message ?? t('profile_error_pwd'));
+        showAlert({ title: t('common_error'), message: err.message ?? t('profile_error_pwd') });
       }
     } finally {
       setPwdLoading(false);
@@ -139,10 +141,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    Alert.alert(t('settings_logout'), t('settings_logout_confirm'), [
+    showAlert({ title: t('settings_logout'), message: t('settings_logout_confirm'), buttons: [
       { text: t('common_cancel'), style: 'cancel' },
       { text: t('settings_logout'), style: 'destructive', onPress: () => signOut(auth) },
-    ]);
+    ]});
   };
 
   const styles = createStyles(Colors);

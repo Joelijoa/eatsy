@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useColors, usePreferences } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -19,6 +20,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const Colors = useColors();
   const { t } = usePreferences();
+  const { showAlert } = useAlert();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,7 +48,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     try {
       await registerUser(email, password, name);
     } catch (err: any) {
-      Alert.alert(t('common_error'), err.message ?? t('register_failed'));
+      showAlert({ title: t('common_error'), message: err.message ?? t('register_failed') });
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Animated } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
@@ -9,6 +9,7 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences, Language, Currency, useColors } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
@@ -24,6 +25,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const Colors = useColors();
   const { user } = useAuth();
   const { t, language, currency, darkMode, setLanguage, setCurrency, setDarkMode } = usePreferences();
+  const { showAlert } = useAlert();
   const [helpExpanded, setHelpExpanded]   = useState(false);
   const [expandedFaq, setExpandedFaq]     = useState<number | null>(null);
   const [termsExpanded, setTermsExpanded] = useState(false);
@@ -77,7 +79,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         (m) => m.requestNotificationPermission(),
       );
       if (!granted) {
-        Alert.alert('', t('settings_notifications_permission'));
+        showAlert({ title: t('settings_notifications_permission') });
         const reverted = { ...updated, enabled: false };
         setNotifSettings(reverted);
         await saveNotificationSettings(reverted);
@@ -116,10 +118,10 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   ];
 
   const handleLogout = () => {
-    Alert.alert(t('settings_logout'), t('settings_logout_confirm'), [
+    showAlert({ title: t('settings_logout'), message: t('settings_logout_confirm'), buttons: [
       { text: t('common_cancel'), style: 'cancel' },
       { text: t('settings_logout'), style: 'destructive', onPress: () => signOut(auth) },
-    ]);
+    ]});
   };
 
   const LANG_OPTIONS: Array<{ value: Language; label: string; flag: string }> = [

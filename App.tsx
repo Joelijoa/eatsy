@@ -10,7 +10,7 @@ import {
   BeVietnamPro_500Medium,
   BeVietnamPro_700Bold,
 } from '@expo-google-fonts/be-vietnam-pro';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Image } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import { PreferencesProvider } from './src/context/PreferencesContext';
@@ -51,7 +51,7 @@ function SplashScreen() {
       {/* Logo */}
       <View style={splash.logoWrap}>
         <View style={splash.logoIcon}>
-          <Text style={splash.logoEmoji}>🍽</Text>
+          <Image source={require('./assets/Icon2.0.png')} style={splash.logoImg} />
         </View>
         <Text style={splash.logoText}>Eatsy</Text>
         <Text style={splash.tagline}>Planifiez · Cuisinez · Économisez</Text>
@@ -128,11 +128,9 @@ const splash = StyleSheet.create({
   logoWrap: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   logoIcon: {
     width: 90, height: 90, borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)',
+    overflow: 'hidden', marginBottom: 20,
   },
-  logoEmoji: { fontSize: 40 },
+  logoImg: { width: 90, height: 90 },
   logoText: {
     fontSize: 48, color: '#fff', letterSpacing: -2,
     fontWeight: '800', marginBottom: 8,

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Eatsy",
     "slug": "eatsy",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/Icon2.0.png",
     "userInterfaceStyle": "light",
@@ -31,7 +31,8 @@
     },
     "plugins": [
       "expo-camera",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-notifications"
     ],
     "extra": {
       "eas": {

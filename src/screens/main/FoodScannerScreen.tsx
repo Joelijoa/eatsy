@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   TextInput, ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useColors, usePreferences } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { addShoppingItem } from '../../services/shoppingListService';
@@ -37,6 +38,7 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const Colors = useColors();
   const { t } = usePreferences();
+  const { showAlert } = useAlert();
   const styles = createStyles(Colors);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -72,13 +74,13 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
         setQty('1');
         setUnit('pcs');
       } else {
-        Alert.alert(t('scanner_product_not_found'), `${t('scanner_barcode_label')} : ${data}`, [
+        showAlert({ title: t('scanner_product_not_found'), message: `${t('scanner_barcode_label')} : ${data}`, buttons: [
           { text: t('scanner_rescan'), onPress: () => setScanned(false) },
-          { text: t('scanner_close'), onPress: () => navigation.goBack() },
-        ]);
+          { text: t('scanner_close'), style: 'cancel', onPress: () => navigation.goBack() },
+        ]});
       }
     } catch {
-      Alert.alert(t('scanner_network_error'), t('scanner_network_error_msg'));
+      showAlert({ title: t('scanner_network_error'), message: t('scanner_network_error_msg') });
       setScanned(false);
     } finally {
       setLoading(false);
@@ -90,10 +92,10 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
     setSaving('cart');
     await addShoppingItem(user.uid, { name: product.name, quantity: parseFloat(qty) || 1, unit, price: 0 });
     setSaving(null);
-    Alert.alert(t('scanner_added_to_cart'), `"${product.name}" ${t('scanner_added_to_cart_msg')}`, [
+    showAlert({ title: t('scanner_added_to_cart'), message: `"${product.name}" ${t('scanner_added_to_cart_msg')}`, buttons: [
       { text: t('scanner_scan_another'), onPress: () => { setScanned(false); setProduct(null); } },
-      { text: t('scanner_close'), onPress: () => navigation.goBack() },
-    ]);
+      { text: t('scanner_close'), style: 'cancel', onPress: () => navigation.goBack() },
+    ]});
   };
 
   const handleAddToStock = async () => {
@@ -101,10 +103,10 @@ export const FoodScannerScreen: React.FC<Props> = ({ navigation }) => {
     setSaving('stock');
     await addOrMergePantryItem(user.uid, product.name, parseFloat(qty) || 1, unit);
     setSaving(null);
-    Alert.alert(t('scanner_added_to_stock'), `"${product.name}" ${t('scanner_added_to_stock_msg')}`, [
+    showAlert({ title: t('scanner_added_to_stock'), message: `"${product.name}" ${t('scanner_added_to_stock_msg')}`, buttons: [
       { text: t('scanner_scan_another'), onPress: () => { setScanned(false); setProduct(null); } },
-      { text: t('scanner_close'), onPress: () => navigation.goBack() },
-    ]);
+      { text: t('scanner_close'), style: 'cancel', onPress: () => navigation.goBack() },
+    ]});
   };
 
   if (!permission) return <View style={styles.screen}><ActivityIndicator color={Colors.primary} /></View>;

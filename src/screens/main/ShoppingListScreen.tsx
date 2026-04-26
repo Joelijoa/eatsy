@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity,
-  Modal, TextInput, RefreshControl, Alert, Animated, Share,
+  Modal, TextInput, RefreshControl, Animated, Share,
 } from 'react-native';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences, useColors } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import {
   getShoppingItems, addShoppingItem, toggleShoppingItem,
   deleteShoppingItem, clearCheckedItems, generateShoppingItemsFromPlan,
@@ -48,6 +49,7 @@ const getCategoryStyle = (name: string): { icon: keyof typeof Ionicons.glyphMap;
 export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user } = useAuth();
   const { t, formatCurrency } = usePreferences();
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const Colors = useColors();
 
@@ -128,19 +130,15 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
     setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, checked: updated } : i));
     await toggleShoppingItem(item.id, updated);
     if (updated && user) {
-      Alert.alert(
-        t('shopping_add_to_stock_title'),
-        `"${item.name}" (${item.quantity} ${item.unit})`,
-        [
-          { text: t('common_no'), style: 'cancel' },
-          { text: t('shopping_add_to_stock_yes'), onPress: () => addOrMergePantryItem(user.uid, item.name, item.quantity, item.unit) },
-        ],
-      );
+      showAlert({ title: t('shopping_add_to_stock_title'), message: `"${item.name}" (${item.quantity} ${item.unit})`, buttons: [
+        { text: t('common_no'), style: 'cancel' },
+        { text: t('shopping_add_to_stock_yes'), onPress: () => addOrMergePantryItem(user.uid, item.name, item.quantity, item.unit) },
+      ]});
     }
   };
 
   const handleDelete = (item: ShoppingItem) => {
-    Alert.alert(t('common_delete'), `"${item.name}" ?`, [
+    showAlert({ title: t('common_delete'), message: `"${item.name}" ?`, buttons: [
       { text: t('common_cancel'), style: 'cancel' },
       {
         text: t('common_delete'), style: 'destructive', onPress: async () => {
@@ -148,12 +146,12 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
           await deleteShoppingItem(item.id);
         },
       },
-    ]);
+    ]});
   };
 
   const handleClearChecked = () => {
     if (!user) return;
-    Alert.alert(t('shopping_clear_checked'), `${checked.length} article(s) ?`, [
+    showAlert({ title: t('shopping_clear_checked'), message: `${checked.length} article(s) ?`, buttons: [
       { text: t('common_cancel'), style: 'cancel' },
       {
         text: t('common_delete'), style: 'destructive', onPress: async () => {
@@ -161,7 +159,7 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
           await clearCheckedItems(user.uid);
         },
       },
-    ]);
+    ]});
   };
 
   const openGenerateModal = () => { setGenerateMerge(true); setGenerateModal(true); };
@@ -174,12 +172,12 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
       setGenerateModal(false);
       await loadItems();
       if (result.noMeals) {
-        Alert.alert('', t('shopping_generate_no_plan'));
+        showAlert({ title: t('shopping_generate_no_plan') });
       } else {
-        Alert.alert(
-          t('shopping_generate_title'),
-          `${result.added} ${t('shopping_generate_done')}${result.inStock > 0 ? ` · ${result.inStock} ${t('shopping_generate_in_stock')}` : ''}`,
-        );
+        showAlert({
+          title: t('shopping_generate_title'),
+          message: `${result.added} ${t('shopping_generate_done')}${result.inStock > 0 ? ` · ${result.inStock} ${t('shopping_generate_in_stock')}` : ''}`,
+        });
       }
     } finally {
       setGenerating(false);

@@ -15,6 +15,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences, useColors } from '../context/PreferencesContext';
+import { AlertProvider } from '../context/AlertContext';
 import { Colors } from '../constants/colors';
 import { FontFamily, FontSize } from '../constants/typography';
 
@@ -215,7 +216,7 @@ export const AppNavigator: React.FC = () => {
   }
 
   return (
-    <>
+    <AlertProvider>
       <StatusBar style={darkMode ? 'light' : 'dark'} backgroundColor={darkMode ? '#121212' : Colors.surface} />
       <NavigationContainer>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
@@ -250,7 +251,7 @@ export const AppNavigator: React.FC = () => {
           <LockScreen onUnlock={() => setIsLocked(false)} />
         </View>
       )}
-    </>
+    </AlertProvider>
   );
 };
 

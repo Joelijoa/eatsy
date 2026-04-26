@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Animated,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
+import { useAlert } from '../../context/AlertContext';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -44,6 +45,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
   const [prepTime, setPrepTime] = useState('15');
   const [cookTime, setCookTime] = useState('30');
   const [servings, setServings] = useState('4');
+  const { showAlert } = useAlert();
   const [imageUri, setImageUri] = useState<string | undefined>();
   const [ingredients, setIngredients] = useState<Ingredient[]>([emptyIngredient()]);
   const [instructions, setInstructions] = useState<string[]>(['']);
@@ -114,8 +116,8 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!name.trim()) return Alert.alert(t('common_name_required'), t('add_recipe_name_required_msg'));
-    if (ingredients.some((i) => !i.name.trim())) return Alert.alert(t('add_recipe_incomplete_title'), t('add_recipe_incomplete_msg'));
+    if (!name.trim()) return showAlert({ title: t('common_name_required'), message: t('add_recipe_name_required_msg') });
+    if (ingredients.some((i) => !i.name.trim())) return showAlert({ title: t('add_recipe_incomplete_title'), message: t('add_recipe_incomplete_msg') });
 
     setLoading(true);
     try {
@@ -146,7 +148,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
       }
       navigation.goBack();
     } catch (e: any) {
-      Alert.alert(t('common_error'), e.message);
+      showAlert({ title: t('common_error'), message: e.message });
     } finally {
       setLoading(false);
     }

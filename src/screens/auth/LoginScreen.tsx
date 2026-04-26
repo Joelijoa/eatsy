@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert, Image,
+  KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useColors, usePreferences } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -19,6 +20,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const Colors = useColors();
   const { t } = usePreferences();
+  const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,7 +42,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       await loginUser(email, password);
     } catch {
-      Alert.alert(t('login_error_title'), t('login_error_msg'));
+      showAlert({ title: t('login_error_title'), message: t('login_error_msg') });
     } finally {
       setLoading(false);
     }

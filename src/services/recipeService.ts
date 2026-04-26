@@ -10,6 +10,7 @@ import {
   where,
   Timestamp,
 } from 'firebase/firestore';
+import * as FileSystem from 'expo-file-system';
 import { db } from './firebase';
 import { Recipe, Category } from '../types';
 
@@ -50,6 +51,13 @@ export const updateRecipe = async (id: string, recipe: Partial<Recipe>): Promise
 };
 
 export const deleteRecipe = async (id: string): Promise<void> => {
+  const snap = await getDoc(doc(db, 'recipes', id));
+  if (snap.exists()) {
+    const imageUrl = snap.data().imageUrl as string | undefined;
+    if (imageUrl?.startsWith(FileSystem.documentDirectory ?? '')) {
+      await FileSystem.deleteAsync(imageUrl, { idempotent: true });
+    }
+  }
   await deleteDoc(doc(db, 'recipes', id));
 };
 

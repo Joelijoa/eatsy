@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Modal, TextInput, Alert, ScrollView, Animated,
+  Modal, TextInput, ScrollView, Animated,
 } from 'react-native';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { useAuth } from '../../context/AuthContext';
 import { usePreferences, useColors } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { HeaderActions } from '../../components/HeaderActions';
 import {
   getPantryItems, addOrMergePantryItem,
@@ -48,6 +49,7 @@ type Props = { navigation: any };
 export const PantryScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const { t } = usePreferences();
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const Colors = useColors();
 
@@ -106,7 +108,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleDelete = (item: PantryItem) => {
-    Alert.alert(t('common_delete'), `"${item.name}" ?`, [
+    showAlert({ title: t('common_delete'), message: `"${item.name}" ?`, buttons: [
       { text: t('common_cancel'), style: 'cancel' },
       {
         text: t('common_delete'), style: 'destructive', onPress: async () => {
@@ -114,7 +116,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
           await deletePantryItem(item.id);
         },
       },
-    ]);
+    ]});
   };
 
   const availableCount = items.filter((i) => i.quantity > 0).length;

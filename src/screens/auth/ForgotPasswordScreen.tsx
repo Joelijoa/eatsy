@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useColors, usePreferences } from '../../context/PreferencesContext';
+import { useAlert } from '../../context/AlertContext';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyButton } from '../../components/EatsyButton';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -19,18 +20,19 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const Colors = useColors();
   const { t } = usePreferences();
+  const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
   const handleReset = async () => {
-    if (!email.trim()) return Alert.alert(t('auth_email_required'));
+    if (!email.trim()) return showAlert({ title: t('auth_email_required') });
     setLoading(true);
     try {
       await resetPassword(email);
       setSent(true);
     } catch (err: any) {
-      Alert.alert(t('common_error'), err.message ?? t('forgot_failed'));
+      showAlert({ title: t('common_error'), message: err.message ?? t('forgot_failed') });
     } finally {
       setLoading(false);
     }
