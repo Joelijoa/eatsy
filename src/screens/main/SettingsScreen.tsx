@@ -30,7 +30,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const [notifSettings, setNotifSettings] = useState<MealNotificationSettings | null>(null);
   const [biometricEnabled, setBiometricEnabled]   = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricLabel, setBiometricLabel]         = useState('Biométrie');
+  const [biometricLabel, setBiometricLabel]         = useState(t('settings_biometric_default'));
   const { opacity, translateY } = useScreenEntrance();
 
   useEffect(() => {
@@ -44,11 +44,11 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
       const available = hasHW && enrolled;
       setBiometricAvailable(available);
       if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-        setBiometricLabel('Face ID');
+        setBiometricLabel(t('settings_biometric_face'));
       } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-        setBiometricLabel('Empreinte digitale');
+        setBiometricLabel(t('settings_biometric_fingerprint'));
       } else {
-        setBiometricLabel('Code PIN');
+        setBiometricLabel(t('settings_biometric_pin'));
       }
     });
     AsyncStorage.getItem('eatsy_biometric_lock').then(v => setBiometricEnabled(v === 'true')).catch(() => {});
@@ -57,8 +57,8 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const toggleBiometric = async (value: boolean) => {
     if (value) {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Confirmer l\'activation',
-        fallbackLabel: 'Code PIN',
+        promptMessage: t('settings_biometric_confirm'),
+        fallbackLabel: t('settings_biometric_pin'),
         disableDeviceFallback: false,
       });
       if (!result.success) return;
@@ -99,30 +99,12 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const FAQ_ITEMS = [
-    {
-      q: "Mes données sont-elles partagées avec des tiers ?",
-      a: "Non. Vos données (recettes, planning, budget) sont stockées sur votre compte Firebase personnel et ne sont jamais partagées, vendues ou transmises à des tiers.",
-    },
-    {
-      q: "L'application fonctionne-t-elle hors ligne ?",
-      a: "Certaines données récemment consultées sont mises en cache par Firebase, mais la plupart des fonctionnalités nécessitent une connexion internet pour synchroniser vos données en temps réel.",
-    },
-    {
-      q: "Comment supprimer mon compte et mes données ?",
-      a: "Pour supprimer votre compte et toutes vos données, contactez le support depuis la section À propos. La suppression est définitive et irréversible.",
-    },
-    {
-      q: "Puis-je utiliser Eatsy sur plusieurs appareils ?",
-      a: "Oui. Vos données sont synchronisées via votre compte et accessibles sur tous vos appareils connectés avec les mêmes identifiants.",
-    },
-    {
-      q: "Comment sont calculés les coûts des recettes ?",
-      a: "Le coût d'une recette est la somme des prix unitaires de ses ingrédients, que vous renseignez lors de la création. Le coût par personne est ensuite calculé en divisant par le nombre de portions.",
-    },
-    {
-      q: "Mes données sont-elles sécurisées ?",
-      a: "Oui. Les données sont chiffrées en transit (HTTPS) et au repos dans l'infrastructure Google Firebase, soumise aux normes ISO 27001 et SOC 2.",
-    },
+    { q: t('settings_faq_q1'), a: t('settings_faq_a1') },
+    { q: t('settings_faq_q2'), a: t('settings_faq_a2') },
+    { q: t('settings_faq_q3'), a: t('settings_faq_a3') },
+    { q: t('settings_faq_q4'), a: t('settings_faq_a4') },
+    { q: t('settings_faq_q5'), a: t('settings_faq_a5') },
+    { q: t('settings_faq_q6'), a: t('settings_faq_a6') },
   ];
 
   const HELP_ITEMS = [
@@ -174,7 +156,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.avatarText}>{user?.displayName?.[0]?.toUpperCase() ?? 'E'}</Text>
             </View>
           </View>
-          <Text style={styles.profileName}>{user?.displayName ?? 'Chef'}</Text>
+          <Text style={styles.profileName}>{user?.displayName ?? t('common_chef')}</Text>
           <Text style={styles.profileEmail}>{user?.email}</Text>
         </View>
       </View>
@@ -316,7 +298,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Sécurité ── */}
         <View style={styles.groupLabel}>
           <Ionicons name="shield-checkmark-outline" size={13} color={Colors.onSurfaceVariant} />
-          <Text style={styles.groupLabelText}>SÉCURITÉ</Text>
+          <Text style={styles.groupLabelText}>{t('settings_security')}</Text>
         </View>
         <View style={styles.card}>
           <View style={[styles.switchRow, !biometricAvailable && { opacity: 0.45 }]}>
@@ -324,11 +306,9 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
               <Ionicons name="finger-print" size={18} color={Colors.primary} />
             </View>
             <View style={styles.switchBody}>
-              <Text style={styles.switchLabel}>Verrouillage {biometricLabel}</Text>
+              <Text style={styles.switchLabel}>{t('settings_biometric_lock').replace('{type}', biometricLabel)}</Text>
               <Text style={styles.switchSub}>
-                {biometricAvailable
-                  ? 'Verrouille l\'app après 30 s en arrière-plan'
-                  : 'Non disponible sur cet appareil'}
+                {biometricAvailable ? t('settings_biometric_sub_on') : t('settings_biometric_sub_off')}
               </Text>
             </View>
             <Switch
@@ -348,7 +328,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
         <View style={styles.card}>
           <TouchableOpacity style={styles.helpToggle} onPress={() => setHelpExpanded(!helpExpanded)} activeOpacity={0.78}>
-            <Text style={styles.helpToggleText}>{helpExpanded ? 'Masquer le guide' : 'Afficher le guide d\'utilisation'}</Text>
+            <Text style={styles.helpToggleText}>{helpExpanded ? t('settings_help_hide') : t('settings_help_show')}</Text>
             <Ionicons name={helpExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.onSurfaceVariant} />
           </TouchableOpacity>
           {helpExpanded && (
@@ -410,43 +390,23 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Conditions d'utilisation ── */}
         <View style={styles.groupLabel}>
           <Ionicons name="document-text-outline" size={13} color={Colors.onSurfaceVariant} />
-          <Text style={styles.groupLabelText}>DONNÉES & CONFIDENTIALITÉ</Text>
+          <Text style={styles.groupLabelText}>{t('settings_data_section')}</Text>
         </View>
         <View style={styles.card}>
           <TouchableOpacity style={styles.helpToggle} onPress={() => setTermsExpanded(!termsExpanded)} activeOpacity={0.78}>
             <Text style={styles.helpToggleText}>
-              {termsExpanded ? 'Masquer les conditions' : 'Lire les conditions d\'utilisation'}
+              {termsExpanded ? t('settings_terms_hide') : t('settings_terms_show')}
             </Text>
             <Ionicons name={termsExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.onSurfaceVariant} />
           </TouchableOpacity>
           {termsExpanded && (
             <View style={styles.termsBlock}>
               {[
-                {
-                  icon: 'server-outline' as const,
-                  title: 'Données collectées',
-                  body: "Eatsy collecte votre nom, adresse e-mail, recettes, planning de repas, liste de courses, budget et données de garde-manger. Ces données sont nécessaires au bon fonctionnement de l'application.",
-                },
-                {
-                  icon: 'cloud-outline' as const,
-                  title: 'Stockage & sécurité',
-                  body: "Vos données sont stockées sur Firebase (Google LLC), chiffrées en transit (TLS) et au repos. L'infrastructure est certifiée ISO 27001 et SOC 2 Type II.",
-                },
-                {
-                  icon: 'people-outline' as const,
-                  title: 'Partage des données',
-                  body: "Aucune donnée personnelle n'est partagée, vendue ou cédée à des tiers à des fins commerciales. Eatsy n'utilise pas de traceurs publicitaires.",
-                },
-                {
-                  icon: 'trash-outline' as const,
-                  title: 'Droit à la suppression',
-                  body: "Vous pouvez demander la suppression définitive de votre compte et de toutes vos données à tout moment en nous contactant. La suppression est effective sous 30 jours.",
-                },
-                {
-                  icon: 'refresh-outline' as const,
-                  title: 'Mise à jour des conditions',
-                  body: "Ces conditions peuvent être mises à jour. Vous serez informé par notification en cas de changement significatif. L'utilisation continue de l'app vaut acceptation.",
-                },
+                { icon: 'server-outline' as const, title: t('settings_terms_t1'), body: t('settings_terms_b1') },
+                { icon: 'cloud-outline'  as const, title: t('settings_terms_t2'), body: t('settings_terms_b2') },
+                { icon: 'people-outline' as const, title: t('settings_terms_t3'), body: t('settings_terms_b3') },
+                { icon: 'trash-outline'  as const, title: t('settings_terms_t4'), body: t('settings_terms_b4') },
+                { icon: 'refresh-outline' as const, title: t('settings_terms_t5'), body: t('settings_terms_b5') },
               ].map((section, idx, arr) => (
                 <View key={idx} style={[styles.termsSection, idx < arr.length - 1 && styles.rowBorder]}>
                   <View style={styles.termsIconWrap}>

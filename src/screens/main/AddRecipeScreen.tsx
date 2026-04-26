@@ -6,6 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, BorderRadius, Spacing } from '../../constants/typography';
 import { EatsyInput } from '../../components/EatsyInput';
@@ -102,6 +103,15 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const totalCost = ingredients.reduce((s, i) => s + (i.price || 0) * (i.quantity || 0), 0);
 
+  const saveImageLocally = async (uri: string, uid: string): Promise<string> => {
+    if (!uri.startsWith('file://') && !uri.startsWith('content://')) return uri;
+    const dir = `${FileSystem.documentDirectory}recipe_images/`;
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+    const dest = `${dir}${uid}_${Date.now()}.jpg`;
+    await FileSystem.copyAsync({ from: uri, to: dest });
+    return dest;
+  };
+
   const handleSave = async () => {
     if (!user) return;
     if (!name.trim()) return Alert.alert(t('common_name_required'), t('add_recipe_name_required_msg'));
@@ -109,10 +119,13 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
     setLoading(true);
     try {
+      let finalImageUrl = imageUri;
+      if (imageUri) finalImageUrl = await saveImageLocally(imageUri, user.uid);
+
       const data: Omit<Recipe, 'id'> = {
         name: name.trim(),
         description: description.trim(),
-        imageUrl: imageUri,
+        imageUrl: finalImageUrl,
         prepTime: parseInt(prepTime) || 0,
         cookTime: parseInt(cookTime) || 0,
         servings: parseInt(servings) || 1,
@@ -201,13 +214,13 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
 
             <View style={styles.row}>
               <View style={styles.half}>
-                <EatsyInput label="Préparation (min)" value={prepTime} onChangeText={setPrepTime} keyboardType="numeric" placeholder="15" />
+                <EatsyInput label={t('add_recipe_prep_label')} value={prepTime} onChangeText={setPrepTime} keyboardType="numeric" placeholder="15" />
               </View>
               <View style={styles.half}>
-                <EatsyInput label="Cuisson (min)" value={cookTime} onChangeText={setCookTime} keyboardType="numeric" placeholder="30" />
+                <EatsyInput label={t('add_recipe_cook_label')} value={cookTime} onChangeText={setCookTime} keyboardType="numeric" placeholder="30" />
               </View>
             </View>
-            <EatsyInput label="Nombre de personnes" value={servings} onChangeText={setServings} keyboardType="numeric" placeholder="4" />
+            <EatsyInput label={t('add_recipe_servings_label')} value={servings} onChangeText={setServings} keyboardType="numeric" placeholder="4" />
           </View>
 
           {/* Wellness type */}
@@ -216,23 +229,23 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.cardHeaderIcon}>
                 <Ionicons name="heart-circle-outline" size={18} color={Colors.primary} />
               </View>
-              <Text style={styles.cardTitle}>Type de repas</Text>
+              <Text style={styles.cardTitle}>{t('add_recipe_meal_type')}</Text>
             </View>
 
             <View style={styles.wellnessRow}>
-              {WELLNESS_OPTIONS.map((w) => {
-                const active = wellnessType === w.value;
+              {(Object.entries(WELLNESS_ICONS) as [WellnessType, typeof WELLNESS_ICONS[WellnessType]][]).map(([value, w]) => {
+                const active = wellnessType === value;
                 return (
                   <TouchableOpacity
-                    key={w.value}
+                    key={value}
                     style={[styles.wellnessOption, { backgroundColor: active ? w.bg : Colors.surfaceContainerLow }, active && { borderColor: w.color }]}
-                    onPress={() => setWellnessType(w.value)}
+                    onPress={() => setWellnessType(value)}
                     activeOpacity={0.8}
                   >
                     <View style={[styles.wellnessIconWrap, { backgroundColor: active ? w.color : Colors.surfaceContainerHigh }]}>
                       <Ionicons name={w.icon} size={18} color={active ? '#fff' : Colors.onSurfaceVariant} />
                     </View>
-                    <Text style={[styles.wellnessLabel, active && { color: w.color, fontFamily: FontFamily.bodyBold }]}>{w.label}</Text>
+                    <Text style={[styles.wellnessLabel, active && { color: w.color, fontFamily: FontFamily.bodyBold }]}>{t(`wellness_${value}` as any)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -246,14 +259,14 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                 <View style={styles.cardHeaderIcon}>
                   <Ionicons name="grid-outline" size={18} color={Colors.primary} />
                 </View>
-                <Text style={styles.cardTitle}>Catégorie</Text>
+                <Text style={styles.cardTitle}>{t('add_recipe_category')}</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
                 <TouchableOpacity
                   style={[styles.catChip, !categoryId && styles.catChipActive]}
                   onPress={() => setCategoryId('')}
                 >
-                  <Text style={[styles.catChipText, !categoryId && styles.catChipTextActive]}>Toutes</Text>
+                  <Text style={[styles.catChipText, !categoryId && styles.catChipTextActive]}>{t('common_all')}</Text>
                 </TouchableOpacity>
                 {categories.map((c) => (
                   <TouchableOpacity
@@ -274,7 +287,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.cardHeaderIcon}>
                 <Ionicons name="basket-outline" size={18} color={Colors.primary} />
               </View>
-              <Text style={styles.cardTitle}>Ingrédients</Text>
+              <Text style={styles.cardTitle}>{t('add_recipe_ingredients')}</Text>
               <View style={styles.cardHeaderRight}>
                 <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
                 <Text style={styles.totalCostText}>{formatCurrency(totalCost)}</Text>
@@ -287,7 +300,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                   <View style={styles.ingIndex}>
                     <Text style={styles.ingIndexText}>{idx + 1}</Text>
                   </View>
-                  <Text style={styles.ingLabel}>Ingrédient {idx + 1}</Text>
+                  <Text style={styles.ingLabel}>{t('add_recipe_ingredient_n')} {idx + 1}</Text>
                   <TouchableOpacity
                     style={styles.removeIconBtn}
                     onPress={() => removeIngredient(ing.id)}
@@ -297,17 +310,17 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                   </TouchableOpacity>
                 </View>
                 <EatsyInput
-                  label="Nom"
+                  label={t('add_recipe_ing_name')}
                   value={ing.name}
                   onChangeText={(v) => updateIngredient(ing.id, 'name', v)}
                   placeholder="Ex: Farine"
                 />
                 <View style={styles.row}>
                   <View style={styles.third}>
-                    <EatsyInput label="Quantité" value={String(ing.quantity)} onChangeText={(v) => updateIngredient(ing.id, 'quantity', parseFloat(v) || 0)} keyboardType="numeric" placeholder="100" />
+                    <EatsyInput label={t('add_recipe_quantity')} value={String(ing.quantity)} onChangeText={(v) => updateIngredient(ing.id, 'quantity', parseFloat(v) || 0)} keyboardType="numeric" placeholder="100" />
                   </View>
                   <View style={styles.third}>
-                    <EatsyInput label="Unité" value={ing.unit} onChangeText={(v) => updateIngredient(ing.id, 'unit', v)} placeholder="g" />
+                    <EatsyInput label={t('add_recipe_unit')} value={ing.unit} onChangeText={(v) => updateIngredient(ing.id, 'unit', v)} placeholder="g" />
                   </View>
                   <View style={styles.third}>
                     <EatsyInput label={`Prix (${currencySymbol})`} value={String(ing.price)} onChangeText={(v) => updateIngredient(ing.id, 'price', parseFloat(v) || 0)} keyboardType="numeric" placeholder="0.50" />
@@ -321,7 +334,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               onPress={() => setIngredients((prev) => [...prev, emptyIngredient()])}
             >
               <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-              <Text style={styles.addRowBtnText}>Ajouter un ingrédient</Text>
+              <Text style={styles.addRowBtnText}>{t('add_recipe_add_ingredient')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -331,7 +344,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               <View style={styles.cardHeaderIcon}>
                 <Ionicons name="list-outline" size={18} color={Colors.primary} />
               </View>
-              <Text style={styles.cardTitle}>Instructions</Text>
+              <Text style={styles.cardTitle}>{t('add_recipe_instructions')}</Text>
             </View>
 
             {instructions.map((step, idx) => (
@@ -354,7 +367,7 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
                     label=""
                     value={step}
                     onChangeText={(v) => updateInstruction(idx, v)}
-                    placeholder={`Décrivez l'étape ${idx + 1}...`}
+                    placeholder={t('add_recipe_step_placeholder').replace('{n}', String(idx + 1))}
                     multiline
                   />
                 </View>
@@ -366,14 +379,14 @@ export const AddRecipeScreen: React.FC<Props> = ({ navigation, route }) => {
               onPress={() => setInstructions((prev) => [...prev, ''])}
             >
               <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-              <Text style={styles.addRowBtnText}>Ajouter une étape</Text>
+              <Text style={styles.addRowBtnText}>{t('add_recipe_add_step')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Save */}
           <View style={styles.saveSection}>
             <EatsyButton
-              label={isEdit ? 'Enregistrer les modifications' : 'Créer la recette'}
+              label={isEdit ? t('add_recipe_save_edit') : t('add_recipe_save_new')}
               onPress={handleSave}
               loading={loading}
             />

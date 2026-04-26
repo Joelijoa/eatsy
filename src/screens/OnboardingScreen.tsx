@@ -96,7 +96,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         <View style={{ width: 60 }} />
         <View style={styles.logoRow}>
           <View style={styles.logoIconWrap}>
-            <Image source={require('../../assets/icon2.0.png')} style={styles.logoIconImage} />
+            <Image source={require('../../assets/Icon2.0.png')} style={styles.logoIconImage} />
           </View>
           <Text style={styles.logoLabel}>Eatsy</Text>
         </View>

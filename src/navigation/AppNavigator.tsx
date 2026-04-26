@@ -207,7 +207,7 @@ export const AppNavigator: React.FC = () => {
   if (loading || onboardingDone === null) {
     return (
       <View style={styles.splash}>
-        <Image source={require('../../assets/icon2.0.png')} style={{ width: 80, height: 80, borderRadius: 20 }} />
+        <Image source={require('../../assets/Icon2.0.png')} style={{ width: 80, height: 80, borderRadius: 20 }} />
         <Text style={styles.splashTitle}>Eatsy</Text>
         <ActivityIndicator color={Colors.primary} style={{ marginTop: 24 }} />
       </View>

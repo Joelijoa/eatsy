@@ -67,7 +67,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       await updateProfile(user, { displayName: editName.trim() });
       setEditModal(false);
     } catch (err: any) {
-      Alert.alert('Erreur', err.message ?? 'Impossible de modifier le profil');
+      Alert.alert(t('common_error'), err.message ?? t('profile_error_profile'));
     } finally {
       setEditLoading(false);
     }
@@ -78,12 +78,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     try {
       await sendEmailVerification(user);
       setVerifSent(true);
-      Alert.alert('Email envoyé', `Un lien de vérification a été envoyé à ${user.email}. Cliquez sur le lien puis revenez ici.`);
+      Alert.alert(t('profile_email_sent_title'), t('profile_verif_link_msg').replace('{email}', user.email ?? ''));
     } catch (err: any) {
       if ((err as any).code === 'auth/too-many-requests') {
-        Alert.alert('Trop de tentatives', 'Attendez quelques minutes avant de renvoyer un email.');
+        Alert.alert(t('profile_too_many'), t('profile_too_many_msg'));
       } else {
-        Alert.alert('Erreur', err.message ?? 'Impossible d\'envoyer l\'email de vérification');
+        Alert.alert(t('common_error'), err.message ?? t('profile_error_verify'));
       }
     }
   };
@@ -97,9 +97,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       setIsVerifiedLocal(verified);
       if (verified) {
         setVerifSent(false);
-        Alert.alert('Email vérifié ✓', 'Votre adresse e-mail a bien été vérifiée.');
+        Alert.alert(t('profile_verified_success'), t('profile_verified_msg'));
       } else {
-        Alert.alert('Pas encore vérifié', 'Cliquez sur le lien dans l\'email de vérification puis réessayez.');
+        Alert.alert(t('profile_not_verified_yet'), t('profile_not_verified_msg'));
       }
     } finally {
       setRefreshingVerif(false);
@@ -114,10 +114,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleChangePassword = async () => {
     const errs: Record<string, string> = {};
-    if (!currentPwd) errs.current = 'Mot de passe actuel requis';
-    if (!newPwd) errs.new = 'Nouveau mot de passe requis';
-    else if (newPwd.length < 6) errs.new = 'Au moins 6 caractères';
-    if (newPwd !== confirmPwd) errs.confirm = 'Les mots de passe ne correspondent pas';
+    if (!currentPwd) errs.current = t('profile_pwd_current_required');
+    if (!newPwd) errs.new = t('profile_pwd_new_required');
+    else if (newPwd.length < 6) errs.new = t('auth_password_min');
+    if (newPwd !== confirmPwd) errs.confirm = t('auth_passwords_mismatch');
     if (Object.keys(errs).length) { setPwdErrors(errs); return; }
     if (!user?.email) return;
     setPwdLoading(true);
@@ -126,12 +126,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       await reauthenticateWithCredential(user, cred);
       await updatePassword(user, newPwd);
       setPwdModal(false);
-      Alert.alert('Succès', 'Votre mot de passe a été modifié.');
+      Alert.alert(t('common_success'), t('profile_pwd_changed'));
     } catch (err: any) {
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setPwdErrors({ current: 'Mot de passe actuel incorrect' });
+        setPwdErrors({ current: t('profile_pwd_wrong') });
       } else {
-        Alert.alert('Erreur', err.message ?? 'Impossible de modifier le mot de passe');
+        Alert.alert(t('common_error'), err.message ?? t('profile_error_pwd'));
       }
     } finally {
       setPwdLoading(false);
@@ -159,7 +159,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={20} color="rgba(255,255,255,0.9)" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profil</Text>
+          <Text style={styles.headerTitle}>{t('profile_title')}</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -169,7 +169,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.avatarText}>{initials}</Text>
             </View>
           </View>
-          <Text style={styles.profileName}>{user?.displayName ?? 'Chef'}</Text>
+          <Text style={styles.profileName}>{user?.displayName ?? t('common_chef')}</Text>
           <Text style={styles.profileEmail}>{user?.email}</Text>
         </View>
       </View>
@@ -180,7 +180,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
           <View style={styles.stripTexts}>
             <Text style={styles.stripValue}>{memberSince}</Text>
-            <Text style={styles.stripLabel}>membre depuis</Text>
+            <Text style={styles.stripLabel}>{t('profile_member_since')}</Text>
           </View>
         </View>
         <View style={styles.stripDivider} />
@@ -192,9 +192,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           />
           <View style={styles.stripTexts}>
             <Text style={[styles.stripValue, { color: isVerifiedLocal ? Colors.secondary : Colors.tertiary }]}>
-              {isVerifiedLocal ? 'Vérifié' : 'Non vérifié'}
+              {isVerifiedLocal ? t('profile_verified') : t('profile_not_verified')}
             </Text>
-            <Text style={styles.stripLabel}>statut email</Text>
+            <Text style={styles.stripLabel}>{t('profile_status_email')}</Text>
           </View>
         </View>
       </View>
@@ -207,12 +207,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Informations ── */}
         <View style={styles.groupLabel}>
           <Ionicons name="person-outline" size={13} color={Colors.onSurfaceVariant} />
-          <Text style={styles.groupLabelText}>INFORMATIONS DU COMPTE</Text>
+          <Text style={styles.groupLabelText}>{t('profile_section_account')}</Text>
         </View>
         <View style={styles.card}>
           {[
-            { icon: 'person-circle-outline' as const, label: 'Nom affiché',    value: user?.displayName ?? '—' },
-            { icon: 'mail-outline'          as const, label: 'Adresse e-mail', value: user?.email ?? '—' },
+            { icon: 'person-circle-outline' as const, label: t('profile_display_name_label'), value: user?.displayName ?? '—' },
+            { icon: 'mail-outline'          as const, label: t('profile_email_label'),        value: user?.email ?? '—' },
           ].map((row, idx) => (
             <View key={row.label} style={[styles.infoRow, idx > 0 && styles.rowBorder]}>
               <View style={styles.infoIconWrap}>
@@ -230,8 +230,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <Ionicons name="create-outline" size={17} color={Colors.primary} />
             </View>
             <View style={styles.actionBody}>
-              <Text style={styles.actionLabel}>Modifier le profil</Text>
-              <Text style={styles.actionSub}>Changer votre nom affiché</Text>
+              <Text style={styles.actionLabel}>{t('profile_edit_title')}</Text>
+              <Text style={styles.actionSub}>{t('profile_change_name')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.outlineVariant} />
           </TouchableOpacity>
@@ -240,7 +240,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Sécurité ── */}
         <View style={styles.groupLabel}>
           <Ionicons name="lock-closed-outline" size={13} color={Colors.onSurfaceVariant} />
-          <Text style={styles.groupLabelText}>SÉCURITÉ</Text>
+          <Text style={styles.groupLabelText}>{t('profile_section_security')}</Text>
         </View>
         <View style={styles.card}>
           <TouchableOpacity style={styles.actionRow} onPress={openPwdModal} activeOpacity={0.78}>
@@ -248,8 +248,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <Ionicons name="lock-closed-outline" size={17} color={Colors.primary} />
             </View>
             <View style={styles.actionBody}>
-              <Text style={styles.actionLabel}>Modifier le mot de passe</Text>
-              <Text style={styles.actionSub}>Mettre à jour vos identifiants</Text>
+              <Text style={styles.actionLabel}>{t('profile_change_pwd')}</Text>
+              <Text style={styles.actionSub}>{t('profile_update_creds')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.outlineVariant} />
           </TouchableOpacity>
@@ -266,9 +266,9 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                   <Ionicons name="mail-unread-outline" size={17} color={Colors.tertiary} />
                 </View>
                 <View style={styles.actionBody}>
-                  <Text style={[styles.actionLabel, { color: Colors.tertiary }]}>Vérifier l'adresse e-mail</Text>
+                  <Text style={[styles.actionLabel, { color: Colors.tertiary }]}>{t('profile_verify_title')}</Text>
                   <Text style={styles.actionSub}>
-                    {verifSent ? 'Email envoyé — vérifiez votre boîte' : 'Un lien sera envoyé à votre adresse'}
+                    {verifSent ? t('profile_verify_sent') : t('profile_verify_sub')}
                   </Text>
                 </View>
                 {verifSent
@@ -292,8 +292,8 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                       }
                     </View>
                     <View style={styles.actionBody}>
-                      <Text style={[styles.actionLabel, { color: Colors.secondary }]}>J'ai vérifié mon email</Text>
-                      <Text style={styles.actionSub}>Appuyez ici après avoir cliqué sur le lien</Text>
+                      <Text style={[styles.actionLabel, { color: Colors.secondary }]}>{t('profile_check_verified')}</Text>
+                      <Text style={styles.actionSub}>{t('profile_check_verified_sub')}</Text>
                     </View>
                   </TouchableOpacity>
                 </>
@@ -305,7 +305,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         {/* ── Actions ── */}
         <View style={styles.groupLabel}>
           <Ionicons name="grid-outline" size={13} color={Colors.onSurfaceVariant} />
-          <Text style={styles.groupLabelText}>ACTIONS</Text>
+          <Text style={styles.groupLabelText}>{t('profile_section_actions')}</Text>
         </View>
         <View style={styles.card}>
           <TouchableOpacity
@@ -316,7 +316,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={[styles.actionIconWrap, { backgroundColor: `${Colors.primary}14` }]}>
               <Ionicons name="settings-outline" size={17} color={Colors.primary} />
             </View>
-            <Text style={styles.actionLabelSimple}>Paramètres</Text>
+            <Text style={styles.actionLabelSimple}>{t('profile_settings_link')}</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.outlineVariant} />
           </TouchableOpacity>
           <View style={styles.rowBorder} />
@@ -339,14 +339,14 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.modalIconWrap}>
               <Ionicons name="person-outline" size={24} color={Colors.primary} />
             </View>
-            <Text style={styles.modalTitle}>Modifier le profil</Text>
+            <Text style={styles.modalTitle}>{t('profile_edit_title')}</Text>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Nom affiché</Text>
+              <Text style={styles.inputLabel}>{t('profile_display_name_label')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={editName}
                 onChangeText={setEditName}
-                placeholder="Votre nom"
+                placeholder={t('profile_name_placeholder')}
                 placeholderTextColor={Colors.outline}
                 autoFocus
                 autoCapitalize="words"
@@ -354,7 +354,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModal(false)} disabled={editLoading}>
-                <Text style={styles.cancelBtnText}>Annuler</Text>
+                <Text style={styles.cancelBtnText}>{t('common_cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveBtn, !editName.trim() && { opacity: 0.45 }]}
@@ -363,7 +363,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               >
                 {editLoading
                   ? <ActivityIndicator size="small" color={Colors.onPrimary} />
-                  : <><Ionicons name="checkmark" size={18} color={Colors.onPrimary} /><Text style={styles.saveBtnText}>Enregistrer</Text></>
+                  : <><Ionicons name="checkmark" size={18} color={Colors.onPrimary} /><Text style={styles.saveBtnText}>{t('common_save')}</Text></>
                 }
               </TouchableOpacity>
             </View>
@@ -379,10 +379,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.modalIconWrap}>
               <Ionicons name="lock-closed-outline" size={24} color={Colors.primary} />
             </View>
-            <Text style={styles.modalTitle}>Modifier le mot de passe</Text>
+            <Text style={styles.modalTitle}>{t('profile_change_pwd')}</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Mot de passe actuel</Text>
+              <Text style={styles.inputLabel}>{t('profile_pwd_current_label')}</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={[styles.textInput, { flex: 1 }, pwdErrors.current && styles.inputError]}
@@ -401,7 +401,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Nouveau mot de passe</Text>
+              <Text style={styles.inputLabel}>{t('profile_pwd_new_label')}</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={[styles.textInput, { flex: 1 }, pwdErrors.new && styles.inputError]}
@@ -419,7 +419,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Confirmer le nouveau mot de passe</Text>
+              <Text style={styles.inputLabel}>{t('profile_pwd_confirm_full')}</Text>
               <TextInput
                 style={[styles.textInput, pwdErrors.confirm && styles.inputError]}
                 value={confirmPwd}
@@ -433,12 +433,12 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setPwdModal(false)} disabled={pwdLoading}>
-                <Text style={styles.cancelBtnText}>Annuler</Text>
+                <Text style={styles.cancelBtnText}>{t('common_cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.saveBtn} onPress={handleChangePassword} disabled={pwdLoading}>
                 {pwdLoading
                   ? <ActivityIndicator size="small" color={Colors.onPrimary} />
-                  : <><Ionicons name="checkmark" size={18} color={Colors.onPrimary} /><Text style={styles.saveBtnText}>Enregistrer</Text></>
+                  : <><Ionicons name="checkmark" size={18} color={Colors.onPrimary} /><Text style={styles.saveBtnText}>{t('common_save')}</Text></>
                 }
               </TouchableOpacity>
             </View>

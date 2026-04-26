@@ -129,11 +129,11 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
     await toggleShoppingItem(item.id, updated);
     if (updated && user) {
       Alert.alert(
-        'Ajouter au stock ?',
-        `Ajouter "${item.name}" (${item.quantity} ${item.unit}) à votre garde-manger ?`,
+        t('shopping_add_to_stock_title'),
+        `"${item.name}" (${item.quantity} ${item.unit})`,
         [
-          { text: 'Non', style: 'cancel' },
-          { text: 'Ajouter au stock', onPress: () => addOrMergePantryItem(user.uid, item.name, item.quantity, item.unit) },
+          { text: t('common_no'), style: 'cancel' },
+          { text: t('shopping_add_to_stock_yes'), onPress: () => addOrMergePantryItem(user.uid, item.name, item.quantity, item.unit) },
         ],
       );
     }
@@ -187,22 +187,26 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
   };
 
   const handleShare = async () => {
-    const lines: string[] = ['🛒 Ma liste de courses\n'];
+    const lines: string[] = [t('shopping_title'), ''];
     if (unchecked.length > 0) {
-      lines.push('📋 À acheter :');
+      lines.push(`${t('shopping_to_buy')} (${unchecked.length} ${t('shopping_items')}):`);
       unchecked.forEach((i) => {
-        const price = i.price > 0 ? ` (${formatCurrency(i.price * i.quantity)})` : '';
-        lines.push(`  ☐ ${i.name} — ${i.quantity} ${i.unit}${price}`);
+        const price = i.price > 0 ? ` — ${formatCurrency(i.price * i.quantity)}` : '';
+        lines.push(`- ${i.name} — ${i.quantity} ${i.unit}${price}`);
       });
     }
     if (checked.length > 0) {
-      lines.push('\n✅ Déjà dans le panier :');
-      checked.forEach((i) => lines.push(`  ✓ ${i.name} — ${i.quantity} ${i.unit}`));
+      if (unchecked.length > 0) lines.push('');
+      lines.push(`${t('shopping_in_cart')} (${checked.length} ${t('shopping_items')}):`);
+      checked.forEach((i) => lines.push(`- ${i.name} — ${i.quantity} ${i.unit}`));
     }
-    if (totalCost > 0) lines.push(`\n💰 Total estimé : ${formatCurrency(totalCost)}`);
-    lines.push(`\n📊 ${checked.length}/${items.length} articles · ${progressPct}% fait`);
+    if (totalCost > 0) {
+      lines.push('');
+      lines.push(`${t('shopping_total')}: ${formatCurrency(totalCost)}`);
+    }
+    lines.push(`${checked.length}/${items.length} ${t('shopping_items')} — ${progressPct}% ${t('shopping_done')}`);
     try {
-      await Share.share({ message: lines.join('\n'), title: 'Ma liste de courses' });
+      await Share.share({ message: lines.join('\n'), title: t('shopping_title') });
     } catch (_) {}
   };
 
@@ -259,8 +263,8 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
             <Text style={styles.title}>{t('shopping_title')}</Text>
             <Text style={styles.headerSub}>
               {items.length > 0
-                ? `${checked.length} sur ${items.length} article${items.length > 1 ? 's' : ''}`
-                : 'Liste vide'}
+                ? `${checked.length} / ${items.length} ${t('shopping_items')}`
+                : t('shopping_empty_title')}
             </Text>
           </View>
           <View style={styles.headerActions}>
@@ -279,7 +283,7 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
         {items.length > 0 && (
           <View style={styles.progressSection}>
             <View style={styles.progressLabelRow}>
-              <Text style={styles.progressLabelText}>Progression</Text>
+              <Text style={styles.progressLabelText}>{t('shopping_progress')}</Text>
               <Text style={styles.progressPctText}>{progressPct}%</Text>
             </View>
             <View style={styles.progressTrack}>
@@ -294,19 +298,19 @@ export const ShoppingListScreen: React.FC<{ navigation: any }> = ({ navigation }
         <View style={styles.summaryStrip}>
           <View style={styles.summaryItem}>
             <Text style={[styles.summaryValue, { color: Colors.primary }]}>{unchecked.length}</Text>
-            <Text style={styles.summaryLabel}>restants</Text>
+            <Text style={styles.summaryLabel}>{t('shopping_remaining_label')}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={[styles.summaryValue, { color: Colors.secondary }]}>{checked.length}</Text>
-            <Text style={styles.summaryLabel}>dans le panier</Text>
+            <Text style={styles.summaryLabel}>{t('shopping_in_cart_strip')}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={[styles.summaryValue, { color: Colors.tertiary }]}>
               {totalCost > 0 ? formatCurrency(totalCost) : '—'}
             </Text>
-            <Text style={styles.summaryLabel}>total estimé</Text>
+            <Text style={styles.summaryLabel}>{t('shopping_total_strip')}</Text>
           </View>
         </View>
       )}

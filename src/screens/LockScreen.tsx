@@ -61,7 +61,7 @@ export const LockScreen: React.FC<Props> = ({ onUnlock }) => {
       {/* Logo */}
       <View style={[styles.top, { paddingTop: insets.top + 52 }]}>
         <View style={styles.logoWrap}>
-          <Image source={require('../../assets/icon2.0.png')} style={styles.logoImage} />
+          <Image source={require('../../assets/Icon2.0.png')} style={styles.logoImage} />
         </View>
         <Text style={styles.appName}>Eatsy</Text>
       </View>

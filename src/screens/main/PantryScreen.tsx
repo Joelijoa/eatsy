@@ -145,7 +145,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.itemName, isEmpty && { color: Colors.onSurfaceVariant }]}>{item.name}</Text>
           <View style={[styles.qtyPill, { backgroundColor: `${cardColor}22` }]}>
             <Text style={[styles.qtyPillText, { color: cardColor }]}>
-              {isEmpty ? 'Épuisé' : displayQty(item.quantity, item.unit)}
+              {isEmpty ? t('pantry_exhausted') : displayQty(item.quantity, item.unit)}
             </Text>
           </View>
         </View>
@@ -168,8 +168,8 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.headerDecor2} />
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>Garde-manger</Text>
-            <Text style={styles.headerSub}>{items.length} ingrédient{items.length !== 1 ? 's' : ''} au total</Text>
+            <Text style={styles.headerTitle}>{t('dashboard_pantry_title')}</Text>
+            <Text style={styles.headerSub}>{t('pantry_ingredients_total').replace('{n}', String(items.length))}</Text>
           </View>
           <HeaderActions navigation={navigation} />
         </View>
@@ -179,19 +179,19 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.summaryStrip}>
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryValue, { color: Colors.primary }]}>{items.length}</Text>
-          <Text style={styles.summaryLabel}>total</Text>
+          <Text style={styles.summaryLabel}>{t('pantry_total_label')}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryValue, { color: Colors.secondary }]}>{availableCount}</Text>
-          <Text style={styles.summaryLabel}>disponibles</Text>
+          <Text style={styles.summaryLabel}>{t('pantry_available_label')}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryValue, { color: emptyCount > 0 ? Colors.tertiary : Colors.onSurfaceVariant }]}>
             {emptyCount}
           </Text>
-          <Text style={styles.summaryLabel}>épuisés</Text>
+          <Text style={styles.summaryLabel}>{t('pantry_depleted_label')}</Text>
         </View>
       </View>
 
@@ -202,7 +202,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.searchInput}
           value={search}
           onChangeText={setSearch}
-          placeholder="Rechercher un ingrédient…"
+          placeholder={t('pantry_search_ph')}
           placeholderTextColor={Colors.outline}
         />
         {search ? (
@@ -215,9 +215,9 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
       {/* Filter chips */}
       <View style={styles.filterRow}>
         {([
-          { key: 'all',       label: 'Tout',        count: items.length },
-          { key: 'available', label: 'Disponibles', count: availableCount },
-          { key: 'empty',     label: 'Épuisés',     count: emptyCount },
+          { key: 'all',       label: t('common_all'),              count: items.length },
+          { key: 'available', label: t('pantry_filter_available'), count: availableCount },
+          { key: 'empty',     label: t('pantry_filter_empty'),     count: emptyCount },
         ] as { key: FilterType; label: string; count: number }[]).map(({ key, label, count }) => (
           <TouchableOpacity
             key={key}
@@ -238,19 +238,19 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
             <Ionicons name="basket-outline" size={44} color={Colors.primary} />
           </View>
           <Text style={styles.emptyTitle}>
-            {search ? 'Aucun résultat' : filter !== 'all' ? 'Aucun ingrédient ici' : 'Garde-manger vide'}
+            {search ? t('pantry_empty_no_results') : filter !== 'all' ? t('pantry_empty_no_match') : t('pantry_empty_title')}
           </Text>
           <Text style={styles.emptyDesc}>
             {search
-              ? `Aucun ingrédient correspondant à "${search}".`
+              ? t('pantry_search_match_desc').replace('{query}', search)
               : filter !== 'all'
-              ? 'Changez le filtre pour voir vos ingrédients.'
-              : 'Ajoutez vos ingrédients disponibles pour suivre votre stock.'}
+              ? t('pantry_empty_filter_desc')
+              : t('pantry_empty_desc')}
           </Text>
           {!search && filter === 'all' && (
             <TouchableOpacity style={styles.emptyAddBtn} onPress={openAdd}>
               <Ionicons name="add" size={18} color={Colors.onPrimary} />
-              <Text style={styles.emptyAddBtnText}>Ajouter un ingrédient</Text>
+              <Text style={styles.emptyAddBtnText}>{t('pantry_add_btn')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -281,17 +281,17 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
               <Ionicons name="basket-outline" size={24} color={Colors.primary} />
             </View>
             <Text style={styles.modalTitle}>
-              {editItem ? `Modifier "${editItem.name}"` : 'Ajouter au stock'}
+              {editItem ? t('pantry_sheet_edit').replace('{name}', editItem.name) : t('pantry_sheet_add')}
             </Text>
 
             {!editItem && (
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Ingrédient *</Text>
+                <Text style={styles.inputLabel}>{t('pantry_label_ingredient')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={formName}
                   onChangeText={setFormName}
-                  placeholder="Ex: Bœuf, Farine, Lait…"
+                  placeholder={t('pantry_placeholder_ingredient')}
                   placeholderTextColor={Colors.outline}
                   autoFocus
                 />
@@ -299,7 +299,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
             )}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Quantité *</Text>
+              <Text style={styles.inputLabel}>{t('pantry_label_quantity')}</Text>
               <TextInput
                 style={styles.textInput}
                 value={formQty}
@@ -312,7 +312,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Unité</Text>
+              <Text style={styles.inputLabel}>{t('pantry_label_unit')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   {UNITS.map((u) => (
@@ -332,7 +332,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.editHint}>
                 <Ionicons name="information-circle-outline" size={14} color={Colors.onSurfaceVariant} />
                 <Text style={styles.editHintText}>
-                  Stock actuel : {displayQty(editItem.quantity, editItem.unit)}
+                  {t('pantry_current_stock')} : {displayQty(editItem.quantity, editItem.unit)}
                 </Text>
               </View>
             )}
@@ -347,7 +347,7 @@ export const PantryScreen: React.FC<Props> = ({ navigation }) => {
                 disabled={saving || !formQty || (!editItem && !formName.trim())}
               >
                 <Ionicons name={editItem ? 'checkmark' : 'add'} size={18} color={Colors.onPrimary} />
-                <Text style={styles.modalSaveText}>{editItem ? 'Mettre à jour' : 'Ajouter'}</Text>
+                <Text style={styles.modalSaveText}>{editItem ? t('pantry_save_update') : t('pantry_save_add')}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -182,7 +182,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerGreeting}>{greeting()}</Text>
-            <Text style={styles.headerName}>{user?.displayName?.split(' ')[0] ?? 'Chef'}</Text>
+            <Text style={styles.headerName}>{user?.displayName?.split(' ')[0] ?? t('common_chef')}</Text>
             <Text style={styles.headerDate}>{formatDate()}</Text>
           </View>
           <HeaderActions navigation={navigation} />
@@ -224,7 +224,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => navigation.navigate('CookingMode', { recipeId: nextSlot.recipeId })}
                 activeOpacity={0.8}
               >
-                <Text style={styles.cookBtnText}>Cuisiner</Text>
+                <Text style={styles.cookBtnText}>{t('dashboard_cook_btn')}</Text>
                 <Ionicons name="arrow-forward" size={12} color={C.primary} />
               </TouchableOpacity>
             )}
@@ -250,7 +250,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               { icon: 'calendar-outline',  label: t('tabs_planner'),  screen: 'WeeklyPlanner', accent: true },
               { icon: 'book-outline',       label: t('tabs_recipes'),  screen: 'Recipes' },
               { icon: 'cart-outline',       label: t('tabs_shopping'), screen: 'ShoppingList' },
-              { icon: 'scan-outline',       label: 'Scanner',          screen: 'FoodScanner' },
+              { icon: 'scan-outline',       label: t('tabs_scanner'),  screen: 'FoodScanner' },
             ] as Array<{ icon: string; label: string; screen: string; accent?: boolean }>).map((a) => (
               <TouchableOpacity
                 key={a.screen}
@@ -279,7 +279,7 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
                   color={isOver ? C.tertiary : C.secondary}
                 />
                 <Text style={[styles.statusText, isOver && { color: C.tertiary }]}>
-                  {isOver ? 'Dépassé' : 'Dans les clous'}
+                  {isOver ? t('dashboard_over_budget') : t('dashboard_on_track')}
                 </Text>
               </View>
             </View>
@@ -299,11 +299,11 @@ export const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             <View style={styles.budgetSubRow}>
-              <Text style={styles.budgetPct}>{Math.round(pct * 100)}% utilisé</Text>
+              <Text style={styles.budgetPct}>{Math.round(pct * 100)}% {t('budget_pct_used')}</Text>
               <Text style={styles.budgetRem}>
                 {isOver
-                  ? `+${formatCurrency(weeklySpend - limit)} de dépassement`
-                  : `${formatCurrency(remaining)} restant`}
+                  ? `+${formatCurrency(weeklySpend - limit)} ${t('budget_over_label')}`
+                  : `${formatCurrency(remaining)} ${t('budget_remaining_label')}`}
               </Text>
             </View>
 

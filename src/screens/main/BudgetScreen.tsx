@@ -119,7 +119,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     return (
       <View style={styles.loading}>
         <Ionicons name="wallet-outline" size={36} color={Colors.outlineVariant} />
-        <Text style={styles.loadingText}>Chargement...</Text>
+        <Text style={styles.loadingText}>{t('common_loading')}</Text>
       </View>
     );
   }
@@ -144,7 +144,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
       height: w.total > 0 ? Math.max((w.total / maxVal) * CHART_H, 4) : 0,
       color: over ? Colors.tertiary : w.isCurrent ? Colors.primary : `${Colors.primary}88`,
       over,
-      label: w.isCurrent ? 'Cette\nsem.' : `${parts[2]}/${parts[1]}`,
+      label: w.isCurrent ? t('budget_this_week') : `${parts[2]}/${parts[1]}`,
     };
   });
 
@@ -159,7 +159,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.headerMain}>
           <View>
             <Text style={styles.title}>{t('budget_title')}</Text>
-            <Text style={styles.headerSub}>Semaine du {getWeekStart()}</Text>
+            <Text style={styles.headerSub}>{t('budget_week_of')} {getWeekStart()}</Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.headerBtn} onPress={() => setEditModal(true)}>
@@ -179,8 +179,8 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.progressLabelRow}>
           <Text style={styles.progressLabelText}>
             {isOver
-              ? `Dépassement de ${formatCurrency(overAmount)}`
-              : 'Progression budgétaire'}
+              ? `${t('budget_over_prefix')} ${formatCurrency(overAmount)}`
+              : t('budget_progress_label')}
           </Text>
           <Text style={[styles.progressPctText, isOver && styles.progressPctOver]}>
             {progressPct}%
@@ -205,21 +205,21 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           <Text style={[styles.summaryValue, { color: isOver ? Colors.error : Colors.secondary }]}>
             {isOver ? `+${formatCurrency(overAmount)}` : formatCurrency(remaining)}
           </Text>
-          <Text style={styles.summaryLabel}>{isOver ? 'dépassement' : 'restant'}</Text>
+          <Text style={styles.summaryLabel}>{isOver ? t('budget_over_label') : t('budget_remaining_label')}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryValue, { color: Colors.primary }]}>
             {formatCurrency(avgPerDay)}
           </Text>
-          <Text style={styles.summaryLabel}>moy. / jour</Text>
+          <Text style={styles.summaryLabel}>{t('budget_avg_label')}</Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryValue, { color: Colors.onSurfaceVariant }]}>
             {formatCurrency(limit)}
           </Text>
-          <Text style={styles.summaryLabel}>limite fixée</Text>
+          <Text style={styles.summaryLabel}>{t('budget_limit_label')}</Text>
         </View>
       </View>
 
@@ -234,7 +234,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
         {/* Day breakdown */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Par jour</Text>
+          <Text style={styles.sectionTitle}>{t('budget_per_day')}</Text>
           {dayTotals.map(({ dayKey, label, total, mealDetails }) => {
             const dayPct = weeklyTotal > 0 ? total / weeklyTotal : 0;
             return (
@@ -266,7 +266,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                   </View>
                 ))}
                 {mealDetails.length === 0 && (
-                  <Text style={styles.noPlan}>Aucun repas planifié</Text>
+                  <Text style={styles.noPlan}>{t('budget_no_meals_day')}</Text>
                 )}
               </View>
             );
@@ -275,7 +275,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
         {/* Chart: Évolution des dépenses */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Évolution des dépenses</Text>
+          <Text style={styles.sectionTitle}>{t('budget_evolution')}</Text>
           {pastPlans.length === 0 ? (
             <View style={styles.historyEmpty}>
               <Ionicons name="time-outline" size={22} color={Colors.outlineVariant} />
@@ -341,12 +341,10 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
             <View style={styles.modalIconWrap}>
               <Ionicons name="wallet-outline" size={26} color={Colors.primary} />
             </View>
-            <Text style={styles.modalTitle}>Budget hebdomadaire</Text>
-            <Text style={styles.modalDesc}>
-              Définissez votre limite de dépenses pour la semaine.
-            </Text>
+            <Text style={styles.modalTitle}>{t('budget_modal_title')}</Text>
+            <Text style={styles.modalDesc}>{t('budget_modal_desc')}</Text>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Limite ({currencySymbol})</Text>
+              <Text style={styles.inputLabel}>{t('budget_modal_limit')} ({currencySymbol})</Text>
               <TextInput
                 style={styles.textInput}
                 value={budgetInput}
@@ -364,7 +362,7 @@ export const BudgetScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSaveBtn} onPress={saveBudget}>
                 <Ionicons name="checkmark" size={18} color={Colors.onPrimary} />
-                <Text style={styles.modalSaveText}>Enregistrer</Text>
+                <Text style={styles.modalSaveText}>{t('common_save')}</Text>
               </TouchableOpacity>
             </View>
           </View>

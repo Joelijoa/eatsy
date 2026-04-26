@@ -4,10 +4,10 @@
     "slug": "eatsy",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon2.0.png",
+    "icon": "./assets/Icon2.0.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/icon2.0.png",
+      "image": "./assets/Icon2.0.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,10 +17,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon2.0.png",
+        "foregroundImage": "./assets/Icon2.0.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.eatsy.app"
+      "package": "com.eatsy.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,6 +32,11 @@
     "plugins": [
       "expo-camera",
       "expo-image-picker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "42843bb1-0ec5-4d2a-a66d-c434fe9ce22b"
+      }
+    }
   }
 }

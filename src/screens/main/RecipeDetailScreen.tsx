@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  Image, TouchableOpacity, Alert, Animated,
+  Image, TouchableOpacity, Alert, Animated, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,10 +15,10 @@ import { Recipe, WellnessType } from '../../types';
 import { usePreferences , useColors } from '../../context/PreferencesContext';
 import { useAuth } from '../../context/AuthContext';
 
-const WELLNESS_CONFIG: Record<WellnessType, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  balanced:  { label: 'Équilibré', color: Colors.primary,  bg: `${Colors.secondaryContainer}90`, icon: 'leaf-outline' },
-  quick:     { label: 'Rapide',    color: Colors.tertiary, bg: `${Colors.tertiary}22`,            icon: 'flash-outline' },
-  indulgent: { label: 'Plaisir',   color: Colors.error,    bg: `${Colors.error}18`,               icon: 'heart-outline' },
+const WELLNESS_CONFIG: Record<WellnessType, { color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  balanced:  { color: Colors.primary,  bg: `${Colors.secondaryContainer}90`, icon: 'leaf-outline' },
+  quick:     { color: Colors.tertiary, bg: `${Colors.tertiary}22`,            icon: 'flash-outline' },
+  indulgent: { color: Colors.error,    bg: `${Colors.error}18`,               icon: 'heart-outline' },
 };
 
 const getCategoryStyle = (name: string): { icon: keyof typeof Ionicons.glyphMap; color: string } => {
@@ -49,7 +49,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const Colors = useColors();
   const styles = createStyles(Colors);
-  const { formatCurrency } = usePreferences();
+  const { formatCurrency, t } = usePreferences();
   const { user } = useAuth();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'instructions'>('ingredients');
@@ -76,7 +76,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   if (!recipe) return (
     <View style={styles.loading}>
       <Ionicons name="restaurant-outline" size={40} color={Colors.outlineVariant} />
-      <Text style={styles.loadingText}>Chargement...</Text>
+      <Text style={styles.loadingText}>{t('common_loading')}</Text>
     </View>
   );
 
@@ -84,26 +84,47 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const wConfig = WELLNESS_CONFIG[recipe.wellnessType];
   const totalTime = recipe.prepTime + recipe.cookTime;
 
+  const handleShare = async () => {
+    if (!recipe) return;
+    const lines: string[] = [recipe.name, ''];
+    lines.push(`${t('recipe_stat_prep')}: ${recipe.prepTime} min  |  ${t('recipe_stat_cook')}: ${recipe.cookTime} min  |  ${t('recipe_stat_servings')}: ${recipe.servings}`);
+    lines.push('');
+    lines.push(`${t('recipe_tab_ingredients')}:`);
+    recipe.ingredients.forEach((ing) => lines.push(`- ${ing.name} — ${ing.quantity} ${ing.unit}`));
+    if (recipe.instructions.length > 0) {
+      lines.push('');
+      lines.push(`${t('recipe_tab_instructions')}:`);
+      recipe.instructions.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
+    }
+    if (recipe.totalCost > 0) {
+      lines.push('');
+      lines.push(`${t('recipe_share_cost')}: ${formatCurrency(recipe.totalCost)}`);
+    }
+    try {
+      await Share.share({ message: lines.join('\n'), title: recipe.name });
+    } catch (_) {}
+  };
+
   const handleDeduct = () => {
     if (!user || !recipe) return;
     const available = stockInfo.filter((s) => s.status !== 'missing').length;
     if (available === 0) {
-      Alert.alert('Stock insuffisant', 'Aucun ingrédient trouvé dans votre garde-manger.');
+      Alert.alert(t('recipe_stock_empty'), t('recipe_stock_empty_msg'));
       return;
     }
     Alert.alert(
-      'Déduire du stock',
-      `Déduire les ingrédients de "${recipe.name}" de votre garde-manger ?`,
+      t('recipe_deduct_title'),
+      t('recipe_deduct_confirm_msg').replace('{name}', recipe.name),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common_cancel'), style: 'cancel' },
         {
-          text: 'Déduire', onPress: async () => {
+          text: t('recipe_deduct_btn'), onPress: async () => {
             setDeducting(true);
             await deductRecipeFromPantry(user.uid, recipe.ingredients);
             const updated = await checkRecipeStock(user.uid, recipe.ingredients);
             setStockInfo(updated);
             setDeducting(false);
-            Alert.alert('Stock mis à jour', 'Les ingrédients ont été déduits de votre garde-manger.');
+            Alert.alert(t('recipe_deduct_done'), t('recipe_deduct_done_msg'));
           },
         },
       ],
@@ -134,13 +155,13 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
       missing.forEach((s) => next.add(s.ingredient.name));
       return next;
     });
-    Alert.alert('Ajouté aux courses', `${missing.length} ingrédient(s) ajouté(s) à votre liste de courses.`);
+    Alert.alert(t('recipe_added_shopping'), t('recipe_added_shopping_msg').replace('{n}', String(missing.length)));
   };
 
   const handleDelete = () => {
-    Alert.alert('Supprimer la recette', `Supprimer "${recipe.name}" définitivement ?`, [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Supprimer', style: 'destructive', onPress: async () => { await deleteRecipe(recipe.id); navigation.goBack(); } },
+    Alert.alert(t('recipe_delete_title'), t('recipe_delete_confirm_msg').replace('{name}', recipe.name), [
+      { text: t('common_cancel'), style: 'cancel' },
+      { text: t('common_delete'), style: 'destructive', onPress: async () => { await deleteRecipe(recipe.id); navigation.goBack(); } },
     ]);
   };
 
@@ -171,6 +192,9 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <Ionicons name="arrow-back" size={20} color={Colors.onSurface} />
             </TouchableOpacity>
             <View style={styles.heroTopRight}>
+              <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
+                <Ionicons name="share-outline" size={18} color={Colors.secondary} />
+              </TouchableOpacity>
               <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('AddRecipe', { recipeId: recipe.id })}>
                 <Ionicons name="pencil" size={18} color={Colors.primary} />
               </TouchableOpacity>
@@ -186,7 +210,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <View style={styles.titleCardTop}>
             <View style={[styles.wellnessBadge, { backgroundColor: wConfig.bg }]}>
               <Ionicons name={wConfig.icon} size={12} color={wConfig.color} />
-              <Text style={[styles.wellnessBadgeText, { color: wConfig.color }]}>{wConfig.label}</Text>
+              <Text style={[styles.wellnessBadgeText, { color: wConfig.color }]}>{t(`wellness_${recipe.wellnessType}` as any)}</Text>
             </View>
             <Text style={styles.heroTitle}>{recipe.name}</Text>
             {recipe.description ? (
@@ -198,10 +222,10 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* Stats card */}
         <View style={styles.statsCard}>
           {[
-            { icon: 'time-outline' as const,   label: 'Prép.',     value: `${recipe.prepTime} min`, color: Colors.primary },
-            { icon: 'flame-outline' as const,  label: 'Cuisson',   value: `${recipe.cookTime} min`, color: Colors.tertiary },
-            { icon: 'people-outline' as const, label: 'Portions',  value: `${recipe.servings}`,      color: Colors.secondary },
-            { icon: 'wallet-outline' as const, label: 'Par pers.', value: formatCurrency(costPerServing), color: Colors.primary },
+            { icon: 'time-outline' as const,   label: t('recipe_stat_prep'),       value: `${recipe.prepTime} min`,       color: Colors.primary },
+            { icon: 'flame-outline' as const,  label: t('recipe_stat_cook'),       value: `${recipe.cookTime} min`,       color: Colors.tertiary },
+            { icon: 'people-outline' as const, label: t('recipe_stat_servings'),   value: `${recipe.servings}`,           color: Colors.secondary },
+            { icon: 'wallet-outline' as const, label: t('recipe_stat_per_person'), value: formatCurrency(costPerServing), color: Colors.primary },
           ].map((s, i) => (
             <View key={i} style={[styles.statCard, i < 3 && styles.statCardBorder]}>
               <View style={[styles.statIcon, { backgroundColor: `${s.color}18` }]}>
@@ -218,7 +242,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           <View style={styles.costLeft}>
             <Ionicons name="pricetag-outline" size={18} color={Colors.primary} />
             <View>
-              <Text style={styles.costLabel}>Coût total de la recette</Text>
+              <Text style={styles.costLabel}>{t('recipe_total_cost')}</Text>
               <Text style={styles.costSub}>{recipe.servings} portions · {totalTime} min</Text>
             </View>
           </View>
@@ -233,7 +257,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           >
             <Ionicons name="list-outline" size={16} color={activeTab === 'ingredients' ? Colors.onPrimary : Colors.onSurfaceVariant} />
             <Text style={[styles.tabBtnText, activeTab === 'ingredients' && styles.tabBtnTextActive]}>
-              Ingrédients ({recipe.ingredients.length})
+              {t('recipe_tab_ingredients')} ({recipe.ingredients.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -242,7 +266,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           >
             <Ionicons name="document-text-outline" size={16} color={activeTab === 'instructions' ? Colors.onPrimary : Colors.onSurfaceVariant} />
             <Text style={[styles.tabBtnText, activeTab === 'instructions' && styles.tabBtnTextActive]}>
-              Instructions ({recipe.instructions.length})
+              {t('recipe_tab_instructions')} ({recipe.instructions.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -273,8 +297,8 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                               {info.status === 'ok'
                                 ? displayQty(info.availableQty, info.availableUnit)
                                 : info.status === 'partial'
-                                ? `${displayQty(info.availableQty, info.availableUnit)} dispo`
-                                : 'non en stock'}
+                                ? `${displayQty(info.availableQty, info.availableUnit)} ${t('recipe_stock_dispo')}`
+                                : t('recipe_stock_out')}
                             </Text>
                           </View>
                         )}
@@ -305,11 +329,11 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   <View style={styles.stockBannerLeft}>
                     <Ionicons name="cube-outline" size={16} color={Colors.primary} />
                     <View>
-                      <Text style={styles.stockBannerTitle}>Stock disponible</Text>
+                      <Text style={styles.stockBannerTitle}>{t('recipe_in_stock')}</Text>
                       <Text style={styles.stockBannerSub}>
-                        {stockInfo.filter((s) => s.status === 'ok').length} complets ·{' '}
-                        {stockInfo.filter((s) => s.status === 'partial').length} partiels ·{' '}
-                        {stockInfo.filter((s) => s.status === 'missing').length} manquants
+                        {stockInfo.filter((s) => s.status === 'ok').length} {t('recipe_stock_complete')} ·{' '}
+                        {stockInfo.filter((s) => s.status === 'partial').length} {t('recipe_stock_partial')} ·{' '}
+                        {stockInfo.filter((s) => s.status === 'missing').length} {t('recipe_stock_missing')}
                       </Text>
                     </View>
                   </View>
@@ -317,7 +341,7 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     {stockInfo.some((s) => s.status === 'missing' || s.status === 'partial') && (
                       <TouchableOpacity style={styles.cartAllBtn} onPress={handleAddAllMissingToCart}>
                         <Ionicons name="cart-outline" size={14} color={Colors.tertiary} />
-                        <Text style={styles.cartAllBtnText}>Courses</Text>
+                        <Text style={styles.cartAllBtnText}>{t('recipe_shopping_list_btn')}</Text>
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
@@ -326,14 +350,14 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                       disabled={deducting}
                     >
                       <Ionicons name="remove-circle-outline" size={14} color={Colors.primary} />
-                      <Text style={styles.deductBtnText}>Déduire</Text>
+                      <Text style={styles.deductBtnText}>{t('recipe_deduct_btn')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               )}
 
               <View style={styles.ingredientTotal}>
-                <Text style={styles.ingredientTotalLabel}>Total ingrédients</Text>
+                <Text style={styles.ingredientTotalLabel}>{t('recipe_ingredient_total')}</Text>
                 <Text style={styles.ingredientTotalValue}>{formatCurrency(totalCost)}</Text>
               </View>
             </>
@@ -357,9 +381,13 @@ export const RecipeDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         {/* CTA */}
         <View style={styles.ctaSection}>
           <EatsyButton
-            label="Démarrer la cuisine"
+            label={t('recipe_start_cooking')}
             onPress={() => navigation.navigate('CookingMode', { recipeId: recipe.id })}
           />
+          <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.75}>
+            <Ionicons name="share-outline" size={18} color={Colors.onSurfaceVariant} />
+            <Text style={styles.shareBtnText}>{t('recipe_share_btn')}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: 40 }} />
@@ -514,5 +542,11 @@ const createStyles = (C: typeof Colors) => StyleSheet.create({
   },
   stepText: { fontFamily: FontFamily.body, fontSize: FontSize.bodyMd, color: C.onSurface, lineHeight: 22 },
 
-  ctaSection: { paddingHorizontal: Spacing.lg, marginTop: Spacing.md },
+  ctaSection: { paddingHorizontal: Spacing.lg, marginTop: Spacing.md, gap: Spacing.sm },
+  shareBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 13, borderRadius: BorderRadius.full,
+    backgroundColor: C.surfaceContainerHigh,
+  },
+  shareBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.bodyMd, color: C.onSurfaceVariant },
 });

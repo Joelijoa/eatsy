@@ -56,7 +56,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.decor1} />
         <View style={styles.decor2} />
         <View style={styles.logoCircle}>
-          <Image source={require('../../../assets/icon2.0.png')} style={styles.logoImage} />
+          <Image source={require('../../../assets/Icon2.0.png')} style={styles.logoImage} />
         </View>
         <Text style={styles.appName}>Eatsy</Text>
         <Text style={styles.tagline}>{t('login_tagline')}</Text>

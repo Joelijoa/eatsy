@@ -33,7 +33,7 @@ export const WelcomeScreen: React.FC<Props> = ({ userName }) => {
       <View style={styles.decor3} />
 
       <Animated.View style={[styles.logoCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-        <Image source={require('../../assets/icon2.0.png')} style={styles.logoImage} />
+        <Image source={require('../../assets/Icon2.0.png')} style={styles.logoImage} />
       </Animated.View>
 
       <Animated.View style={[styles.textWrap, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
